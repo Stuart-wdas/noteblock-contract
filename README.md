@@ -1,1 +1,3 @@
-why cant i return a custom type in cairo
+Flow:
+
+Create a studio
