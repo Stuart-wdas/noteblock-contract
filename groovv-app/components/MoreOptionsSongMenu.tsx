@@ -13,7 +13,7 @@ export default function MoreOptionsSongMenu({ song }: { song: Song | Song[] }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild className='z-20'>
+      <DropdownMenuTrigger asChild className='z-1000'>
         <Button
           variant={'ghost'}
           className='text-white p-2 rounded-full hover:bg-gray-800'
@@ -21,7 +21,7 @@ export default function MoreOptionsSongMenu({ song }: { song: Song | Song[] }) {
           <MoreVertical size={20} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className='bg-secondary border-none text-white rounded-md p-2 mr-5 z-[999]'>
+      <DropdownMenuContent className='bg-secondary border-none text-white rounded-md p-2 mr-5 z-1400'>
         <DropdownMenuItem
           onClick={() => addToQueue(song)}
           className='flex justify-between items-center'

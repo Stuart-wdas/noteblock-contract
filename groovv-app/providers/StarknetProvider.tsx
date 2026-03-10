@@ -7,12 +7,27 @@ import {useQuery, useQueryClient} from '@tanstack/react-query';
 
 // Fetcher: user library
 const fetchUserLibrary = async (walletAddress: string) => {
-  const res = await fetch(`/api/library?userId=${walletAddress}`);
-  if (res.status == 404) {
-    return false;
+  let res = await fetch(`/api/library?userId=${walletAddress}`, {
+    cache: 'no-store',
+  });
+
+  if (res.status === 404) {
+    try {
+      await createUser({contractAddress: walletAddress});
+      res = await fetch(`/api/library?userId=${walletAddress}`, {
+        cache: 'no-store',
+      });
+    } catch (error) {
+      console.error('Failed to bootstrap wallet user', error);
+      return false;
+    }
   }
-  const library = await res.json();
-  return library;
+
+  if (!res.ok) {
+    throw new Error(`Failed to load library (${res.status})`);
+  }
+
+  return res.json();
 };
 
 interface WalletContextType {
@@ -62,7 +77,14 @@ export const WalletProvider: React.FC<{children: React.ReactNode}> = ({
       console.log('Wallet', walletAddress);
       setConnection(wallet);
       setAddress(walletAddress);
-      queryClient.invalidateQueries({queryKey: ['userLibrary']});
+      await queryClient.invalidateQueries({
+        queryKey: ['userLibrary', walletAddress],
+        exact: true,
+      });
+      await queryClient.prefetchQuery({
+        queryKey: ['userLibrary', walletAddress],
+        queryFn: () => fetchUserLibrary(walletAddress),
+      });
       return connectorData.account!;
     }
     throw new Error('Wallet connection failed');

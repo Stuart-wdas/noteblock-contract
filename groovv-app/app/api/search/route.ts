@@ -1,5 +1,6 @@
-import {Prisma} from '@/generated/prisma';
-import {prisma} from '@/lib/prisma';
+import {or, ilike} from 'drizzle-orm';
+import {db} from '@/lib/db';
+import {songs} from '@/lib/db/schema';
 import {NextRequest, NextResponse} from 'next/server';
 
 export async function GET(req: NextRequest) {
@@ -16,16 +17,20 @@ export async function GET(req: NextRequest) {
     )
   );
 
-  // Build OR conditions correctly
-  const OR: Prisma.SongWhereInput[] = searchTerms.flatMap((term) => [
-    {name: {contains: term, mode: 'insensitive'}},
-    {artist: {contains: term, mode: 'insensitive'}},
-    {genre: {contains: term, mode: 'insensitive'}},
+  if (searchTerms.length === 0) {
+    return NextResponse.json({results: []});
+  }
+
+  const conditions = searchTerms.flatMap((term) => [
+    ilike(songs.title, `%${term}%`),
+    ilike(songs.artist, `%${term}%`),
+    ilike(songs.genre, `%${term}%`),
   ]);
 
-  const results = await prisma.song.findMany({
-    where: {OR},
-  });
+  const results = await db
+    .select()
+    .from(songs)
+    .where(or(...conditions));
 
   return NextResponse.json({results});
 }

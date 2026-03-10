@@ -23,7 +23,7 @@ function FancyButton({ label, icon }: any) {
     <button
       onClick={() => setPlayStyle(label)}
       className={`relative flex items-center justify-center gap-2 text-xs px-2 py-2 rounded-xl font-semibold 
-                  transition-all duration-300 ease-out focus:outline-none
+                  transition-all duration-300 ease-out focus:outline-none 
                   ${
                     isActive
                       ? 'text-white bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 shadow-xl scale-[1.05]'

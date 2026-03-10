@@ -1,11 +1,11 @@
 'use client';
 
-import {createStreamSession, setUserPreferences} from '@/actions/userActions';
+import { createStreamSession, setUserPreferences } from '@/actions/userActions';
 import {
   addSongToPlaylist,
   removeSongFromPlaylist,
 } from '@/actions/musicActions';
-import {useWallet} from './StarknetProvider';
+import { useWallet } from './StarknetProvider';
 import React, {
   createContext,
   useContext,
@@ -24,6 +24,7 @@ export interface Song {
   url: string;
   genre: string;
   cover: string;
+  releaseDate?: string | Date;
 }
 
 export interface Album {
@@ -36,13 +37,19 @@ export interface Album {
   releaseDate: string;
 }
 
+export interface PlaylistCollection extends Album {
+  playlistId: number;
+  isPublic?: boolean;
+  createdAt?: string | Date;
+}
+
 export enum Playstyle {
   Shuffle,
   Loop,
   Play,
   Discover,
 }
-export type IndexedSong = Song & {index: number};
+export type IndexedSong = Song & { index: number };
 
 interface AudioPlayerContextType {
   currentSong: Song | null;
@@ -67,20 +74,20 @@ interface AudioPlayerContextType {
   setPlayStyle: (input: string) => void;
   removeFromPlaylist: (playlistId: number, songId: string) => void;
   libraryView?: {
-    flattened: Array<{type: string; data: any}>;
+    flattened: Array<{ type: string; data: any }>;
     partitioned: {
       songs: Song[];
       albums: Album[];
-      artists: {name: string; image: string}[];
+      artists: { name: string; image: string }[];
       genres: string[];
-      playlists: any[];
+      playlists: PlaylistCollection[];
       recentlyAdded: Song[];
     };
   };
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
-  undefined
+  undefined,
 );
 
 export const useAudioPlayer = () => {
@@ -90,7 +97,7 @@ export const useAudioPlayer = () => {
   return context;
 };
 
-export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
+export const AudioPlayerProvider = ({ children }: { children: ReactNode }) => {
   const [currentSong, setCurrentSong] = useState<IndexedSong | null>(null);
   const [queue, setQueue] = useState<IndexedSong[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -104,58 +111,96 @@ export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentVolume, setVolume] = useState(1);
 
-  const {library, address} = useWallet();
+  const { library, address } = useWallet();
+  const resolveSongUrl = (cid?: string) => {
+    if (!cid) return '';
+    if (
+      cid.startsWith('http://') ||
+      cid.startsWith('https://') ||
+      cid.startsWith('/')
+    ) {
+      return cid;
+    }
+    return `/songs/${cid}`;
+  };
 
   // Hydrate user library into queue and partitioned libraryView
   useEffect(() => {
     if (!library) return;
 
-    const allSongs: any[] = [];
-
-    // Flatten playlists & token ownership
+    const songsById = new Map<string, any>();
     const playlists = library.playlists || [];
-    const tokenSongs =
-      library.tokenOwnerships?.map((t: any) => {
-        console.log(t);
-        return {albumId: t.song.album.title, ...t.song};
-      }) || [];
+    const tokenOwnershipRows = library.tokenOwnerships || [];
+    const uploadedSongs = library.uploadedSongs || [];
+    const normalizedPlaylists: PlaylistCollection[] = [];
+
+    const addSong = (rawSong: any) => {
+      if (!rawSong?.id || songsById.has(rawSong.id)) return;
+
+      songsById.set(rawSong.id, {
+        id: rawSong.id,
+        title: rawSong.title,
+        artist: rawSong.artist,
+        album: rawSong.album?.title ?? '',
+        albumObj: rawSong.album ?? null,
+        url: resolveSongUrl(rawSong.cid),
+        genre: rawSong.genre,
+        cover: rawSong.cover,
+        releaseDate: rawSong.releaseDate,
+      });
+    };
 
     playlists.forEach((playlist: any) => {
-      playlist.playlistItems.forEach((item: any) => {
-        allSongs.push({
-          id: item.song.id,
-          title: item.song.title,
-          artist: item.song.artist,
-          album: item.song.album?.title ?? '', // for display
-          albumObj: item.song.album, // for partitioning
-          url: `/songs/${item.song.cid}`,
-          genre: item.song.genre,
-          cover: item.song.cover,
-        });
+      const playlistSongsRaw = (
+        Array.isArray(playlist.songs)
+          ? playlist.songs
+          : Array.isArray(playlist.playlistItems)
+            ? playlist.playlistItems.map((item: any) => item.song)
+            : Array.isArray(playlist.tracks)
+              ? playlist.tracks
+              : []
+      ).filter(Boolean);
+
+      playlistSongsRaw.forEach((song: any) => addSong(song));
+      const playlistSongs = playlistSongsRaw
+        .map((song: any) => songsById.get(song.id))
+        .filter(Boolean);
+
+      normalizedPlaylists.push({
+        id: String(playlist.id ?? `playlist-${normalizedPlaylists.length}`),
+        playlistId: Number(playlist.playlistId ?? playlist.id ?? 0),
+        title: playlist.title ?? 'Untitled Playlist',
+        artist:
+          playlist.artist ??
+          library?.user?.displayName?.trim() ??
+          library?.user?.contractAddress ??
+          'You',
+        genre: playlist.genre ?? 'Playlist',
+        cover: playlist.cover ?? playlistSongs[0]?.cover ?? '/logo.svg',
+        songs: playlistSongs,
+        releaseDate:
+          playlist.releaseDate ??
+          playlist.createdAt?.toISOString?.() ??
+          new Date().toISOString(),
+        isPublic: playlist.isPublic,
+        createdAt: playlist.createdAt,
       });
     });
 
-    tokenSongs.forEach((song: any) => {
-      if (!allSongs.find((s) => s.id === song.id)) {
-        allSongs.push({
-          id: song.id,
-          title: song.title,
-          artist: song.artist,
-          album: song.album?.title ?? '',
-          albumObj: song.album,
-          url: `${song.cid}`,
-          genre: song.genre,
-          cover: song.cover,
-        });
-      }
+    uploadedSongs.forEach((song: any) => {
+      addSong(song);
     });
+
+    tokenOwnershipRows.forEach((row: any) => {
+      addSong(row.song);
+    });
+
+    const allSongs = Array.from(songsById.values());
 
     // Partitioned library
     const songs: Song[] | any[] = allSongs;
     const albumsMap = new Map<string, Album | any>();
     const genresSet = new Set<string>();
-    const artistsSet = new Set<string>();
-    // ...existing code...
     const artistsMap = new Map<string, string>(); // artist name -> image
 
     songs.forEach((song) => {
@@ -186,17 +231,30 @@ export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
       image,
     }));
     const genres = Array.from(genresSet);
-    const recentlyAdded = songs.slice(-10).reverse();
+    const recentlyAdded = [...songs]
+      .sort((a: any, b: any) => {
+        const aTime = new Date(a.releaseDate ?? 0).getTime();
+        const bTime = new Date(b.releaseDate ?? 0).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, 10);
 
     setLibraryView({
       flattened: [
-        ...songs.map((s) => ({type: 'song', data: s})),
-        ...albums.map((a) => ({type: 'album', data: a})),
-        ...artists.map((a) => ({type: 'artist', data: a})),
-        ...genres.map((g) => ({type: 'genre', data: g})),
-        ...playlists.map((p: any) => ({type: 'playlist', data: p})),
+        ...songs.map((s) => ({ type: 'song', data: s })),
+        ...albums.map((a) => ({ type: 'album', data: a })),
+        ...artists.map((a) => ({ type: 'artist', data: a })),
+        ...genres.map((g) => ({ type: 'genre', data: g })),
+        ...normalizedPlaylists.map((p) => ({ type: 'playlist', data: p })),
       ],
-      partitioned: {songs, albums, artists, genres, playlists, recentlyAdded},
+      partitioned: {
+        songs,
+        albums,
+        artists,
+        genres,
+        playlists: normalizedPlaylists,
+        recentlyAdded,
+      },
     });
     // ...existing code...
 
@@ -244,7 +302,7 @@ export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
         setCurrentSong(newOrder[0] ?? null);
       }
     },
-    [currentSong]
+    [currentSong],
   );
 
   const seek = (time: number) => {
@@ -266,7 +324,7 @@ export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
 
     if (!currentSong || currentSong.id !== song.id) {
       if (currentSong) setHistory((prev) => [...prev, currentSong]);
-      setCurrentSong({...song, index: 0});
+      setCurrentSong({ ...song, index: 0 });
 
       audioRef.current.src = song.url;
     }
@@ -329,7 +387,7 @@ export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
 
     const prevSong = history[history.length - 1];
     setHistory(history.slice(0, -1));
-    setCurrentSong({...prevSong, index: 0});
+    setCurrentSong({ ...prevSong, index: 0 });
     audioRef.current.src = prevSong.url;
     audioRef.current.play();
     setIsPlaying(true);
@@ -375,7 +433,7 @@ export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
     const songsToAdd = Array.isArray(songs) ? songs : [songs];
     for (const song of songsToAdd) {
       try {
-        await addSongToPlaylist({playlistId, songId: song.id});
+        await addSongToPlaylist({ playlistId, songId: song.id });
       } catch (err) {
         console.error(`Failed to add ${song.title} to playlist`, err);
       }
@@ -398,7 +456,7 @@ export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
     if (key in Playstyle) {
       setPlaystyle(Playstyle[key]);
       try {
-        await setUserPreferences({userId: address, playstyle: normalized});
+        await setUserPreferences({ userId: address, playstyle: normalized });
       } catch (err) {
         console.warn('Failed to sync playstyle:', err);
       }
@@ -430,7 +488,8 @@ export const AudioPlayerProvider = ({children}: {children: ReactNode}) => {
         reorderQueue,
         setPlayStyle,
         libraryView,
-      }}>
+      }}
+    >
       {children}
     </AudioPlayerContext.Provider>
   );

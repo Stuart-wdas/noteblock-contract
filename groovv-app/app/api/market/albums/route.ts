@@ -1,12 +1,19 @@
 // app/api/market/albums/route.ts
-import {PrismaClient} from '@/generated/prisma';
-import {sampleSongs} from '@/lib/getData';
-import {prisma} from '@/lib/prisma';
+import {db} from '@/lib/db';
 import {NextResponse} from 'next/server';
+
 export async function GET() {
-  const albums = await prisma.album.findMany({
-    include: {songs: true},
+  const albums = await db.query.albums.findMany({
+    with: {songs: true},
   });
 
-  return NextResponse.json({albums: sampleSongs});
+  const payload = albums.map((album) => ({
+    ...album,
+    songs: album.songs.map((song) => ({
+      ...song,
+      url: song.cid,
+    })),
+  }));
+
+  return NextResponse.json({albums: payload});
 }

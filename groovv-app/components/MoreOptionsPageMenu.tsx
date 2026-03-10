@@ -34,7 +34,7 @@ export default function MoreOptionsPageMenu({
           <MoreVertical size={20} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className='bg-secondary border-none text-white rounded-md p-2 mr-5'>
+      <DropdownMenuContent className='bg-secondary border-none text-white rounded-md p-2 mr-5 z-1000'>
         <DropdownMenuItem
           onClick={() => addToQueue(song as Song)}
           className='flex justify-between items-center'

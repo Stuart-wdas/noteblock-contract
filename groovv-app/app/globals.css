@@ -6,8 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-space-grotesk);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -45,6 +45,13 @@
 
 :root {
   --radius: 0.625rem;
+  --scroll-track: rgba(255, 255, 255, 0.08);
+  --scroll-thumb-start: #fdba74;
+  --scroll-thumb-mid: #f97316;
+  --scroll-thumb-end: #ec4899;
+  --groovv-glow-1: rgba(255, 60, 0, 0.495);
+  --groovv-glow-2: rgba(175, 30, 215, 0.12);
+  --groovv-glow-3: rgb(0, 0, 0);
   --background: oklch(0% 0 0);
   --foreground: oklch(0.13 0.028 261.692);
   --card: oklch(1 0 0);
@@ -110,13 +117,84 @@
   --sidebar-accent-foreground: oklch(0.985 0.002 247.839);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+  --scroll-track: rgba(255, 255, 255, 0.08);
+  --scroll-thumb-start: #fdba74;
+  --scroll-thumb-mid: #f97316;
+  --scroll-thumb-end: #ec4899;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb-mid) var(--scroll-track);
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(
+        circle at 8% 10%,
+        var(--groovv-glow-1) 0%,
+        transparent 36%
+      ),
+      radial-gradient(
+        circle at 92% 15%,
+        var(--groovv-glow-2) 0%,
+        transparent 42%
+      ),
+      radial-gradient(
+        circle at 52% 110%,
+        var(--groovv-glow-3) 0%,
+        transparent 52%
+      ),
+      linear-gradient(140deg, #040404 0%, #0b0b0f 48%, #060606 100%);
+  }
+
+  *::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scroll-track);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      var(--scroll-thumb-start) 0%,
+      var(--scroll-thumb-mid) 45%,
+      var(--scroll-thumb-end) 100%
+    );
+    border-radius: 999px;
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.45);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    box-shadow: 0 0 14px rgba(249, 115, 22, 0.65);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  .groovv-panel {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.015) 100%
+    );
+    backdrop-filter: blur(16px);
+  }
+
+  .groovv-elevated {
+    box-shadow:
+      0 24px 80px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 }

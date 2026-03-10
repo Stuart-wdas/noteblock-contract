@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Image from 'next/image';
 import { useState, useMemo } from 'react';
@@ -61,7 +61,7 @@ export function GenreView() {
       />
 
       <div className='flex'>
-        <div className='flex flex-col gap-4 py-4 w-full overflow-y-auto h-[80vh] pr-6'>
+        <div className='flex flex-col gap-4 py-4 w-full overflow-y-auto h-[60vh] md:h-[68vh] pr-6'>
           {alphabet.map((letter) =>
             groupedGenres[letter] ? (
               <div key={letter} id={`letter-${letter}`}>
@@ -103,12 +103,12 @@ export function GenreView() {
         </div>
 
         {/* Fast scroll bar */}
-        <div className='fixed right-2 top-1/4 z-50 flex flex-col items-center bg-green-500 rounded-md p-1'>
+        <div className='sticky top-20 z-30 ml-2 hidden max-h-[70vh] flex-col items-center rounded-md border border-emerald-400/50 bg-emerald-500/20 p-1 md:flex'>
           {alphabet.map((letter) => (
             <a
               key={letter}
               href={`#letter-${letter}`}
-              className='text-white text-xs font-bold hover:scale-110 transition'
+              className='text-[10px] font-bold text-white transition hover:scale-110'
             >
               {letter}
             </a>
@@ -118,3 +118,4 @@ export function GenreView() {
     </div>
   );
 }
+

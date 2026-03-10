@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import {useMemo, useState} from 'react';
 import {
   Drawer,
   DrawerTrigger,
@@ -9,37 +9,125 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Camera, CirclePlus, PlusCircle, Trash } from 'lucide-react';
+import {Input} from '@/components/ui/input';
+import {Button} from '@/components/ui/button';
+import {Camera, CirclePlus, X} from 'lucide-react';
 import Image from 'next/image';
-import { SongsView } from './Library/MenuViews/SongsView';
-import { motion } from 'framer-motion';
 import AddSongsComp from './AddSongsComp';
+import {useWallet} from '@/providers/StarknetProvider';
+import {useQueryClient} from '@tanstack/react-query';
+import {useAudioPlayer} from '@/providers/AudioPlayerProvider';
 
 export default function NewPlaylistComp() {
   const [open, setOpen] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
-  const [songs, setSongs] = useState<string[]>([]);
+  const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
+  const [status, setStatus] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const {address} = useWallet();
+  const queryClient = useQueryClient();
+  const {libraryView} = useAudioPlayer();
 
-  const handleCreate = () => {
-    console.log({ playlistName, coverUrl, songs });
-    setOpen(false);
+  const selectedSongsById = useMemo(() => {
+    const selectedIdSet = new Set(selectedSongIds);
+    const selectedSongs = (libraryView?.partitioned?.songs ?? []).filter((song) =>
+      selectedIdSet.has(song.id),
+    );
+
+    return new Map(selectedSongs.map((song) => [song.id, song]));
+  }, [libraryView?.partitioned?.songs, selectedSongIds]);
+
+  const resetDraft = () => {
     setPlaylistName('');
     setCoverUrl('');
-    setSongs([]);
+    setSelectedSongIds([]);
+    setStatus('');
+  };
+
+  const toggleSong = (songId: string) => {
+    setSelectedSongIds((current) =>
+      current.includes(songId)
+        ? current.filter((id) => id !== songId)
+        : [...current, songId],
+    );
+  };
+
+  const handleCreate = async () => {
+    if (!address) {
+      setStatus('Connect your wallet before creating playlists.');
+      return;
+    }
+
+    const normalizedTitle = playlistName.trim();
+    if (!normalizedTitle) {
+      setStatus('Playlist title is required.');
+      return;
+    }
+
+    setIsCreating(true);
+    setStatus('Creating playlist...');
+
+    try {
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: normalizedTitle,
+          userId: address,
+          songIds: selectedSongIds,
+          coverSongId: selectedSongIds[0],
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Playlist creation failed');
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: ['userLibrary', address],
+        exact: true,
+      });
+      await queryClient.refetchQueries({
+        queryKey: ['userLibrary', address],
+        exact: true,
+      });
+
+      const skippedCount = Array.isArray(payload.skippedSongIds)
+        ? payload.skippedSongIds.length
+        : 0;
+      setStatus(
+        skippedCount > 0
+          ? `Playlist "${payload.playlist.title}" created. ${skippedCount} song(s) were skipped.`
+          : `Playlist "${payload.playlist.title}" created.`,
+      );
+      setOpen(false);
+      resetDraft();
+    } catch (error) {
+      console.error(error);
+      setStatus('Failed to create playlist.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleCancel = () => {
     setOpen(false);
-    setPlaylistName('');
-    setCoverUrl('');
-    setSongs([]);
+    resetDraft();
   };
 
   return (
-    <Drawer open={open} onOpenChange={setOpen}>
+    <Drawer
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen && !isCreating) {
+          resetDraft();
+        }
+      }}>
       <DrawerTrigger asChild>
         <CirclePlus size={40} fill='white' color='black' />
       </DrawerTrigger>
@@ -53,10 +141,10 @@ export default function NewPlaylistComp() {
             <Button
               onClick={handleCreate}
               variant={'ghost'}
-              disabled={playlistName == '' ? true : false}
-              className={`${playlistName == '' ? '' : 'text-red-500'}`}
+              disabled={playlistName.trim() === '' || isCreating}
+              className={`${playlistName.trim() === '' ? '' : 'text-red-500'}`}
             >
-              Create
+              {isCreating ? 'Creating...' : 'Create'}
             </Button>
           </DrawerDescription>
         </DrawerHeader>
@@ -105,7 +193,75 @@ export default function NewPlaylistComp() {
               className='border-none text-white focus:ring-none focus:border-none focus-visible:ring-0 focus-visible:border-none active:border-none'
             />
           </div>
-          <AddSongsComp />
+          <AddSongsComp
+            selectedSongIds={selectedSongIds}
+            onToggleSong={toggleSong}
+            onClearSongs={() => setSelectedSongIds([])}
+          />
+          {selectedSongIds.length > 0 ? (
+            <div className='rounded-lg border border-zinc-700 bg-zinc-900/40 p-3'>
+              <p className='mb-2 text-sm text-zinc-200'>
+                Songs in playlist ({selectedSongIds.length})
+              </p>
+              <div className='max-h-48 space-y-2 overflow-y-auto pr-1'>
+                {selectedSongIds.map((songId) => {
+                  const song = selectedSongsById.get(songId);
+
+                  if (!song) {
+                    return (
+                      <div
+                        key={songId}
+                        className='flex items-center justify-between rounded-md border border-zinc-700 bg-zinc-950/40 px-2 py-1'
+                      >
+                        <p className='truncate text-xs text-zinc-400'>{songId}</p>
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='icon'
+                          onClick={() => toggleSong(songId)}
+                        >
+                          <X className='h-3 w-3' />
+                        </Button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={song.id}
+                      className='flex items-center justify-between rounded-md border border-zinc-700 bg-zinc-950/40 px-2 py-1'
+                    >
+                      <div className='flex min-w-0 items-center gap-2'>
+                        <Image
+                          src={song.cover || '/logo.svg'}
+                          alt={song.title}
+                          width={30}
+                          height={30}
+                          className='h-8 w-8 rounded object-cover'
+                        />
+                        <div className='min-w-0'>
+                          <p className='truncate text-sm text-white'>{song.title}</p>
+                          <p className='truncate text-xs text-zinc-400'>{song.artist}</p>
+                        </div>
+                      </div>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon'
+                        onClick={() => toggleSong(song.id)}
+                      >
+                        <X className='h-3 w-3' />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+          <p className='text-xs text-zinc-400'>
+            Songs are staged locally and only saved after playlist creation.
+          </p>
+          {status ? <p className='text-sm text-orange-300'>{status}</p> : null}
         </div>
       </DrawerContent>
     </Drawer>

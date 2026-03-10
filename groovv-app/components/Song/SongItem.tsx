@@ -1,8 +1,6 @@
-import { Song } from '@/generated/prisma';
-import { ChevronRight, Plus } from 'lucide-react';
-import { Play } from 'next/font/google';
+import { Song } from '@/providers/AudioPlayerProvider';
 import Image from 'next/image';
-import React, { act } from 'react';
+import React from 'react';
 import PlayPauseButton from '../Buttons/PlayPauseButton';
 import AddToPlaylistButton from '../Buttons/AddToPlaylistButton';
 
@@ -18,6 +16,7 @@ export default function SongItem({
   switch (variant) {
     case 'library':
       action_content = <PlayPauseButton song={song} />;
+      break;
     case 'playlist':
       action_content = <AddToPlaylistButton playlistId={1} songId={song.id} />;
       break;
@@ -32,7 +31,7 @@ export default function SongItem({
         height={50}
         className='rounded-md object-cover'
       />
-      <div className='w-full border-b-[1px] border-gray-600 py-3'>
+      <div className='w-full border-b-1 border-gray-600 py-3'>
         <p className='text-sm text-white text-start font-medium'>
           {song.title}
         </p>
