@@ -31,7 +31,7 @@ import {
   Tag,
   UserRound,
 } from 'lucide-react';
-import {useQueryClient} from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 
 type AlbumOption = {
   id: number;
@@ -353,7 +353,7 @@ export default function Create() {
       resetSongForm();
       await Promise.all([
         loadMySongs(mySongsQuery),
-        queryClient.invalidateQueries({queryKey: ['userLibrary', address]}),
+        queryClient.invalidateQueries({ queryKey: ['userLibrary', address] }),
       ]);
     } catch (error) {
       console.error(error);
@@ -512,9 +512,9 @@ export default function Create() {
                     <p className='text-[11px] text-zinc-500'>
                       {formatReleaseDate(song.releaseDate)}
                     </p>
-                    <p className='mt-1 break-all text-[11px] text-zinc-500'>
+                    {/* <p className='mt-1 break-all text-[11px] text-zinc-500'>
                       {song.cid}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
               </article>

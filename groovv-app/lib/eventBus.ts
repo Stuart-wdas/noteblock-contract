@@ -16,9 +16,7 @@ class EventBus {
   }
 
   emit(event: string, ...args: any[]) {
-    console.log('[eventBus.emit]', event, args);
     this.events.get(event)?.forEach((handler) => {
-      console.log('[eventBus.callHandler]', event);
       handler(...args);
     });
   }

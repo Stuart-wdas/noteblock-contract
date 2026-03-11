@@ -1,6 +1,6 @@
 'use client';
 
-import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
+import { useAudioProgress } from '@/providers/AudioPlayerProvider';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { useRef } from 'react';
 
@@ -17,7 +17,7 @@ export default function SongProgressBar({
   showTime?: boolean;
   variant?: 'default' | 'ghost';
 }) {
-  const { currentTime, duration, seek } = useAudioPlayer();
+  const { currentTime, duration, seek } = useAudioProgress();
   const barRef = useRef<HTMLDivElement>(null);
 
   const progress = currentTime / (duration || 1);

@@ -4,7 +4,7 @@ import React from 'react';
 import PlayPauseButton from '../Buttons/PlayPauseButton';
 import AddToPlaylistButton from '../Buttons/AddToPlaylistButton';
 
-export default function SongItem({
+function SongItem({
   song,
   variant = 'library',
 }: {
@@ -42,3 +42,5 @@ export default function SongItem({
     </div>
   );
 }
+
+export default React.memo(SongItem);

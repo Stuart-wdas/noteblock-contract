@@ -23,7 +23,7 @@ import MoreOptionsSongMenu from '../MoreOptionsSongMenu';
 export default function MiniPlayer({
   albumView = false,
 }: {
-  albumView: boolean;
+  albumView?: boolean;
 }) {
   const { currentSong, isPlaying, togglePlay, next } = useAudioPlayer();
   const [open, setOpen] = useState(false);

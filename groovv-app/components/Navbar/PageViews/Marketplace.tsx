@@ -59,6 +59,7 @@ export default function Marketplace() {
   } = useQuery({
     queryKey: ['marketSongs', address],
     queryFn: () => fetchMarketSongs(address || undefined),
+    staleTime: 60_000,
   });
 
   const sections = data?.sections;

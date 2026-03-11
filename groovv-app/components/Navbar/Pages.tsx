@@ -77,7 +77,7 @@ export default function BottomNavBar() {
               Groovv
             </p>
             <h1 className='mt-2 text-2xl font-semibold tracking-tight'>
-              Listen. Own. Trade.
+              Play. Listen. Trade.
             </h1>
           </div>
 
@@ -104,7 +104,7 @@ export default function BottomNavBar() {
         </aside>
 
         <main className='relative h-full w-full overflow-hidden'>
-          <div className='h-full overflow-y-auto px-4 pb-10 pt-4 sm:px-5 md:px-8 md:pt-8'>
+          <div className='h-full overflow-y-scroll [scrollbar-gutter:stable] px-4 pb-10 pt-4 sm:px-5 md:px-8 md:pt-8'>
             {activeItem && activeTab !== 'home' ? (
               <div className='mb-5 hidden items-center justify-between md:flex'>
                 <div>

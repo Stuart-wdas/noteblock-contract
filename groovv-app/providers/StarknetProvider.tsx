@@ -1,22 +1,18 @@
 'use client';
 import React, {createContext, useContext, useState} from 'react';
-import {connect, disconnect, StarknetWindowObject} from 'starknetkit';
+import {connect, disconnect} from 'starknetkit';
 import {InjectedConnector} from 'starknetkit/injected';
-import {createUser, setUserPreferences} from '@/actions/userActions';
-import {useQuery, useQueryClient} from '@tanstack/react-query';
+import {createUser} from '@/actions/userActions';
+import {useQuery} from '@tanstack/react-query';
 
 // Fetcher: user library
 const fetchUserLibrary = async (walletAddress: string) => {
-  let res = await fetch(`/api/library?userId=${walletAddress}`, {
-    cache: 'no-store',
-  });
+  let res = await fetch(`/api/library?userId=${walletAddress}`);
 
   if (res.status === 404) {
     try {
       await createUser({contractAddress: walletAddress});
-      res = await fetch(`/api/library?userId=${walletAddress}`, {
-        cache: 'no-store',
-      });
+      res = await fetch(`/api/library?userId=${walletAddress}`);
     } catch (error) {
       console.error('Failed to bootstrap wallet user', error);
       return false;
@@ -48,7 +44,6 @@ export const WalletProvider: React.FC<{children: React.ReactNode}> = ({
   const [connection, setConnection] = useState<any>(null);
   const [address, setAddress] = useState<string>('');
   const [isNewUser, setIsNewUser] = useState(false);
-  const queryClient = useQueryClient();
 
   const {data: library, isLoading: isLibraryLoading} = useQuery({
     queryKey: ['userLibrary', address],
@@ -77,14 +72,6 @@ export const WalletProvider: React.FC<{children: React.ReactNode}> = ({
       console.log('Wallet', walletAddress);
       setConnection(wallet);
       setAddress(walletAddress);
-      await queryClient.invalidateQueries({
-        queryKey: ['userLibrary', walletAddress],
-        exact: true,
-      });
-      await queryClient.prefetchQuery({
-        queryKey: ['userLibrary', walletAddress],
-        queryFn: () => fetchUserLibrary(walletAddress),
-      });
       return connectorData.account!;
     }
     throw new Error('Wallet connection failed');
@@ -95,7 +82,6 @@ export const WalletProvider: React.FC<{children: React.ReactNode}> = ({
     setAddress('');
     setConnection(null);
     setIsNewUser(false);
-    queryClient.refetchQueries({queryKey: ['userLibrary']});
   };
 
   return (

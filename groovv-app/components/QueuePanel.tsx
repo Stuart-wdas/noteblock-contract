@@ -12,7 +12,6 @@ import { useAudioPlayer } from '../providers/AudioPlayerProvider';
 import { useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
-  ListOrdered,
   Menu,
   Pause,
   Play,
@@ -35,27 +34,28 @@ export default function QueuePanelDrawer() {
   } = useAudioPlayer();
   const [open, setOpen] = useState(false);
   const [reorderableQueue, setReorderableQueue] = useState(queue);
-  const [activeDirection, setActiveDirection] = useState<'x' | 'y' | null>(
-    null,
-  );
+  const syncingFromContextRef = useRef(false);
 
   useEffect(() => {
+    syncingFromContextRef.current = true;
     setReorderableQueue(queue);
   }, [queue]);
 
+  useEffect(() => {
+    if (syncingFromContextRef.current) {
+      syncingFromContextRef.current = false;
+      return;
+    }
+
+    const commitTimer = setTimeout(() => {
+      reorderQueue(reorderableQueue);
+    }, 120);
+
+    return () => clearTimeout(commitTimer);
+  }, [reorderQueue, reorderableQueue]);
+
   const y = useMotionValue(0);
   const controls = useAnimation();
-  const isDraggingRef = useRef(false);
-
-  const handlePointerDown = () => {
-    isDraggingRef.current = true;
-  };
-
-  const handlePointerUp = () => {
-    setTimeout(() => {
-      isDraggingRef.current = false;
-    }, 100);
-  };
 
   useEffect(() => {
     if (!open) {
@@ -63,8 +63,10 @@ export default function QueuePanelDrawer() {
     }
   }, [open, controls]);
 
+  if (!currentSong) return null;
+
   return (
-    <Drawer open={open}>
+    <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
         <motion.div
           drag='y'
@@ -141,15 +143,12 @@ export default function QueuePanelDrawer() {
         <Reorder.Group
           axis='y'
           values={reorderableQueue}
-          onReorder={(newOrder) => {
-            setReorderableQueue(newOrder);
-            reorderQueue(newOrder);
-          }}
+          onReorder={setReorderableQueue}
           className='flex flex-col gap-2 overflow-y-scroll'
         >
-          {reorderableQueue.map((song, index) => (
+          {reorderableQueue.map((song) => (
             <Reorder.Item
-              key={song.index}
+              key={song.id}
               layoutId={`song-${song.id}`}
               value={song}
               whileDrag={{ scale: 1.02 }}
@@ -160,11 +159,10 @@ export default function QueuePanelDrawer() {
               onDragEnd={(e, info) => {
                 if (info.offset.x > 80) {
                   removeFromQueue(song);
-                  setReorderableQueue(
-                    reorderableQueue.filter((_, i) => i !== index),
+                  setReorderableQueue((prevQueue) =>
+                    prevQueue.filter((queuedSong) => queuedSong.id !== song.id),
                   );
                 }
-                setActiveDirection(null);
               }}
             >
               <motion.div className='flex items-center gap-2 w-full p-2 rounded-lg bg-secondary'>
@@ -179,12 +177,7 @@ export default function QueuePanelDrawer() {
                   <div className='font-semibold'>{song.title}</div>
                   <div className='text-sm text-gray-400'>{song.artist}</div>
                 </div>
-                <motion.div
-                  onMouseDown={handlePointerDown}
-                  onMouseUp={handlePointerUp}
-                  onTouchStart={handlePointerDown}
-                  onTouchEnd={handlePointerUp}
-                >
+                <motion.div>
                   <Menu />
                 </motion.div>
               </motion.div>

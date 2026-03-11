@@ -3,6 +3,9 @@ import {db} from '@/lib/db';
 import {songs} from '@/lib/db/schema';
 import {NextRequest, NextResponse} from 'next/server';
 
+const MAX_TERMS = 5;
+const MAX_RESULTS = 50;
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const q = url.searchParams.get('q') || '';
@@ -15,7 +18,7 @@ export async function GET(req: NextRequest) {
         .map((term) => term.trim())
         .filter(Boolean)
     )
-  );
+  ).slice(0, MAX_TERMS);
 
   if (searchTerms.length === 0) {
     return NextResponse.json({results: []});
@@ -28,9 +31,19 @@ export async function GET(req: NextRequest) {
   ]);
 
   const results = await db
-    .select()
+    .select({
+      id: songs.id,
+      title: songs.title,
+      artist: songs.artist,
+      genre: songs.genre,
+      cid: songs.cid,
+      cover: songs.cover,
+      price: songs.price,
+      copies: songs.copies,
+    })
     .from(songs)
-    .where(or(...conditions));
+    .where(or(...conditions))
+    .limit(MAX_RESULTS);
 
   return NextResponse.json({results});
 }

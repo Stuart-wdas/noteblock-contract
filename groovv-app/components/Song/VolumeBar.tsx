@@ -7,8 +7,6 @@ import {motion, useMotionValue, useTransform} from 'framer-motion';
 
 export default function VolumeBar() {
   const {volume, currentVolume} = useAudioPlayer();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const barRef = useRef<HTMLDivElement>(null);
   const dragX = useMotionValue(0);
 
@@ -25,9 +23,6 @@ export default function VolumeBar() {
   function handleDragEnd() {
     const pct = dragPercent.get();
     volume(pct);
-    if (audioRef.current) {
-      audioRef.current.volume = pct;
-    }
   }
 
   return (

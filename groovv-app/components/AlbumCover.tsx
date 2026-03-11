@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { PlayIcon, Pause, AudioWaveform } from 'lucide-react';
 import { Button } from './ui/button';
 import PlaylistControls from './PlaylistControls';
@@ -22,16 +22,15 @@ import BuyAlbumButton from './Buttons/BuyAlbumButton';
 import { eventBus } from '@/lib/eventBus';
 import MiniPlayer from './Song/MiniPlayer';
 
+const EMPTY_OWNED_SONG_IDS = new Set<string>();
+
 export default function AlbumCover({ album }: { album: Album }) {
   const { playSong, currentSong, togglePlay, isPlaying, libraryView } =
     useAudioPlayer();
   const [open, setOpen] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const ownedSongIds = useMemo(
-    () =>
-      new Set((libraryView?.partitioned.songs ?? []).map((song) => song.id)),
-    [libraryView?.partitioned.songs],
-  );
+  const ownedSongIds =
+    libraryView?.partitioned.ownedSongIds ?? EMPTY_OWNED_SONG_IDS;
   const ownsAlbum = useMemo(() => {
     if (!album?.songs?.length) return false;
     return album.songs.every((song) => ownedSongIds.has(song.id));
@@ -48,13 +47,14 @@ export default function AlbumCover({ album }: { album: Album }) {
     }
   }, []);
 
-  useCallback(() => {
+  useEffect(() => {
     const closeHandler = () => {
-      console.log(`[AlbumCover ${album.id}] closeDialog triggered`);
       setOpen(false);
     };
     eventBus.on('closeDialog', closeHandler);
-    console.log(`[AlbumCover ${album.id}] registered listener`);
+    return () => {
+      eventBus.off('closeDialog', closeHandler);
+    };
   }, [album.id]);
 
   return (

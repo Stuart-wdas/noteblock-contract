@@ -7,11 +7,11 @@ export default function PlaylistControls({ songs }: { songs: Song[] }) {
 
   return (
     <div className='grid grid-cols-2 gap-3 w-full'>
-      <Button onClick={() => playPlaylist(songs)}>
+      <Button onClick={() => playPlaylist(songs)} className='bg-secondary'>
         <Play className='mr-2' />
         Play
       </Button>
-      <Button onClick={() => shufflePlaylist(songs)}>
+      <Button onClick={() => shufflePlaylist(songs)} className='bg-secondary'>
         <Shuffle className='mr-2' />
         Shuffle
       </Button>
