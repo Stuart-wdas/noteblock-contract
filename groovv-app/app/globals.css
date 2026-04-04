@@ -45,7 +45,7 @@
 
 :root {
   --radius: 0.625rem;
-  --scroll-track: rgba(255, 255, 255, 0.08);
+  --scroll-track: rgba(255, 255, 255, 0);
   --scroll-thumb-start: #fdba74;
   --scroll-thumb-mid: #f97316;
   --scroll-thumb-end: #ec4899;

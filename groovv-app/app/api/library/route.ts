@@ -1,17 +1,27 @@
 // /app/api/library/route.ts
-import {eq, ilike, or} from 'drizzle-orm';
+import {and, eq, gt, ilike, or} from 'drizzle-orm';
 import {db} from '@/lib/db';
-import {playlists, songs, userPreferences, users} from '@/lib/db/schema';
+import {
+  marketListings,
+  playlists,
+  songs,
+  userPreferences,
+  users,
+} from '@/lib/db/schema';
 import {NextRequest, NextResponse} from 'next/server';
+import { guardUserAccess } from '@/lib/auth/guards';
 
 export async function GET(req: NextRequest) {
   const {searchParams} = new URL(req.url);
   const userId = searchParams.get('userId');
-  if (!userId)
-    return NextResponse.json({error: 'Missing userId'}, {status: 400});
+  const guard = await guardUserAccess(userId);
+  if (!guard.ok) {
+    return NextResponse.json({error: guard.error}, {status: guard.status});
+  }
+  const resolvedUserId = guard.userId;
 
   const user = await db.query.users.findFirst({
-    where: eq(users.contractAddress, userId),
+    where: eq(users.contractAddress, resolvedUserId),
   });
 
   if (!user) {
@@ -19,7 +29,7 @@ export async function GET(req: NextRequest) {
   }
 
   const userPlaylists = await db.query.playlists.findMany({
-    where: eq(playlists.userId, userId),
+    where: eq(playlists.userId, resolvedUserId),
     with: {
       coverSong: true,
       songs: {
@@ -55,7 +65,22 @@ export async function GET(req: NextRequest) {
   });
 
   const userTokenOwnerships = await db.query.tokenOwnerships.findMany({
-    where: (table, {eq}) => eq(table.owner, userId),
+    where: (table, {eq}) => eq(table.owner, resolvedUserId),
+    with: {
+      song: {
+        with: {
+          album: true,
+        },
+      },
+    },
+  });
+
+  const userActiveListings = await db.query.marketListings.findMany({
+    where: and(
+      eq(marketListings.seller, resolvedUserId),
+      eq(marketListings.isActive, true),
+      gt(marketListings.copies, 0)
+    ),
     with: {
       song: {
         with: {
@@ -84,13 +109,14 @@ export async function GET(req: NextRequest) {
         });
 
   const preferences = await db.query.userPreferences.findFirst({
-    where: eq(userPreferences.userId, userId),
+    where: eq(userPreferences.userId, resolvedUserId),
   });
 
   return NextResponse.json({
     user,
     playlists: playlistsPayload,
     tokenOwnerships: userTokenOwnerships,
+    activeListings: userActiveListings,
     uploadedSongs,
     preferences,
   });

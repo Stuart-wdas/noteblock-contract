@@ -26,6 +26,8 @@ export interface Song {
   genre: string;
   cover: string;
   releaseDate?: string | Date;
+  price?: string;
+  copies?: number;
 }
 
 export interface Album {
@@ -94,7 +96,7 @@ interface AudioPlayerContextType {
       artists: { name: string; image: string }[];
       genres: string[];
       playlists: PlaylistCollection[];
-      recentlyAdded: Song[];
+      recentlyAdded: Song[] | Album[];
       ownedSongIds: Set<string>;
     };
   };
@@ -109,9 +111,9 @@ interface AudioProgressContextType {
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
   undefined,
 );
-const AudioProgressContext = createContext<AudioProgressContextType | undefined>(
-  undefined,
-);
+const AudioProgressContext = createContext<
+  AudioProgressContextType | undefined
+>(undefined);
 
 export const useAudioPlayer = () => {
   const context = useContext(AudioPlayerContext);
@@ -123,9 +125,7 @@ export const useAudioPlayer = () => {
 export const useAudioProgress = () => {
   const context = useContext(AudioProgressContext);
   if (!context) {
-    throw new Error(
-      'useAudioProgress must be used within AudioPlayerProvider',
-    );
+    throw new Error('useAudioProgress must be used within AudioPlayerProvider');
   }
   return context;
 };
@@ -181,6 +181,8 @@ export const AudioPlayerProvider = ({ children }: { children: ReactNode }) => {
         genre: rawSong.genre,
         cover: rawSong.cover,
         releaseDate: rawSong.releaseDate,
+        price: rawSong.price,
+        copies: rawSong.copies,
       });
     };
 
@@ -265,7 +267,7 @@ export const AudioPlayerProvider = ({ children }: { children: ReactNode }) => {
       image,
     }));
     const genres = Array.from(genresSet);
-    const recentlyAdded = [...songs]
+    const recentlyAdded: any = [...songs]
       .sort((a: any, b: any) => {
         const aTime = new Date(a.releaseDate ?? 0).getTime();
         const bTime = new Date(b.releaseDate ?? 0).getTime();
@@ -351,7 +353,12 @@ export const AudioPlayerProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    if (!queue.length) return;
+    if (!queue.length) {
+      audioRef.current!.pause();
+      setCurrentSong(null);
+      setQueue([]);
+      return;
+    }
 
     const nextIndex =
       playstyle === Playstyle.Shuffle
@@ -359,7 +366,9 @@ export const AudioPlayerProvider = ({ children }: { children: ReactNode }) => {
         : 0;
     const nextSong = queue[nextIndex];
 
-    setQueue((previousQueue) => previousQueue.filter((_, index) => index !== nextIndex));
+    setQueue((previousQueue) =>
+      previousQueue.filter((_, index) => index !== nextIndex),
+    );
     if (currentSong) setHistory((prev) => [...prev, currentSong]);
     setCurrentSong(nextSong);
     audioRef.current.src = nextSong.url;
@@ -474,28 +483,31 @@ export const AudioPlayerProvider = ({ children }: { children: ReactNode }) => {
     setIsPlaying(true);
   }, [currentSong, history, playAudio]);
 
-  const addToQueue = useCallback((input: Song | Song[]) => {
-    const songsToAdd = Array.isArray(input) ? input : [input];
-    setQueue((prevQueue) => {
-      const normalizedQueue = prevQueue.filter(
-        (queuedSong) => queuedSong.id !== currentSong?.id,
-      );
-      const currentQueueIds = new Set(normalizedQueue.map((song) => song.id));
-      const songsToInsert = songsToAdd.filter(
-        (song) =>
-          song.id !== currentSong?.id && !currentQueueIds.has(song.id),
-      );
+  const addToQueue = useCallback(
+    (input: Song | Song[]) => {
+      const songsToAdd = Array.isArray(input) ? input : [input];
+      setQueue((prevQueue) => {
+        const normalizedQueue = prevQueue.filter(
+          (queuedSong) => queuedSong.id !== currentSong?.id,
+        );
+        const currentQueueIds = new Set(normalizedQueue.map((song) => song.id));
+        const songsToInsert = songsToAdd.filter(
+          (song) =>
+            song.id !== currentSong?.id && !currentQueueIds.has(song.id),
+        );
 
-      if (!songsToInsert.length) return normalizedQueue;
+        if (!songsToInsert.length) return normalizedQueue;
 
-      const indexedSongs: IndexedSong[] = songsToInsert.map((song, i) => ({
-        ...song,
-        index: normalizedQueue.length + i,
-      }));
+        const indexedSongs: IndexedSong[] = songsToInsert.map((song, i) => ({
+          ...song,
+          index: normalizedQueue.length + i,
+        }));
 
-      return [...indexedSongs, ...normalizedQueue];
-    });
-  }, [currentSong?.id]);
+        return [...indexedSongs, ...normalizedQueue];
+      });
+    },
+    [currentSong?.id],
+  );
 
   const removeFromQueue = useCallback((input: Song) => {
     setQueue((prevQueue) => prevQueue.filter((song) => song.id !== input.id));
@@ -514,25 +526,31 @@ export const AudioPlayerProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [currentSong?.id]);
 
-  const playPlaylist = useCallback((songs: Song[]) => {
-    if (!songs.length || !audioRef.current) return;
+  const playPlaylist = useCallback(
+    (songs: Song[]) => {
+      if (!songs.length || !audioRef.current) return;
 
-    const indexedSongs: IndexedSong[] = songs.map((s, i) => ({
-      ...s,
-      index: i,
-    }));
-    setQueue(indexedSongs.slice(1));
-    setCurrentSong(indexedSongs[0]);
-    audioRef.current.src = indexedSongs[0].url;
-    void playAudio();
-    setIsPlaying(true);
-  }, [playAudio]);
+      const indexedSongs: IndexedSong[] = songs.map((s, i) => ({
+        ...s,
+        index: i,
+      }));
+      setQueue(indexedSongs.slice(1));
+      setCurrentSong(indexedSongs[0]);
+      audioRef.current.src = indexedSongs[0].url;
+      void playAudio();
+      setIsPlaying(true);
+    },
+    [playAudio],
+  );
 
-  const shufflePlaylist = useCallback((songs: Song[]) => {
-    if (!songs.length) return;
-    const shuffled = [...songs].sort(() => Math.random() - 0.5);
-    playPlaylist(shuffled);
-  }, [playPlaylist]);
+  const shufflePlaylist = useCallback(
+    (songs: Song[]) => {
+      if (!songs.length) return;
+      const shuffled = [...songs].sort(() => Math.random() - 0.5);
+      playPlaylist(shuffled);
+    },
+    [playPlaylist],
+  );
 
   const addToPlayList = useCallback(
     async (playlistId: number, songs: Song | Song[]) => {

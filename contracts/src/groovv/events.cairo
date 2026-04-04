@@ -1,60 +1,96 @@
 use starknet::ContractAddress;
-use crate::groovv::interface::{Song, Album};
 
 #[derive(Drop, starknet::Event)]
-pub enum GroovyEvents {
+pub enum GroovvEvents {
     SongCreated: SongCreated,
     SongUpdated: SongUpdated,
+    AlbumCreated: AlbumCreated,
     ListingCreated: ListingCreated, 
-    ListingPurchased: ListingPurchased
+    ListingPurchased: ListingPurchased,
+    ListingRemoved: ListingRemoved,
+    FundsWithdrawn: FundsWithdrawn,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct SongCreated {
     #[key]
-    id: u256,
+    pub song_id: u256,
     #[key]
-    song: Song,
-
+    pub artist: ContractAddress,
+    pub name: ByteArray,
+    pub genre: ByteArray,
+    pub length: u256,
+    pub release_date: u256,
+    pub cid: felt252,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct SongUpdated {
     #[key]
-    id: u256,
+    pub listing_id: u256,
     #[key]
-    song: Song,
+    pub seller: ContractAddress,
+    pub new_price: u256,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct AlbumCreated {
     #[key]
-    id: u256,
+    pub album_id: u256,
     #[key]
-    album: Album,
+    pub artist: ContractAddress,
+    pub name: ByteArray,
+    pub genre: ByteArray,
+    pub release_date: u256,
+    pub songs_count: u32,
 }
 
 #[derive(Drop, starknet::Event)]
 pub struct ListingCreated {
     #[key]
-    seller: ContractAddress,
+    pub seller: ContractAddress,
     #[key]
-    listing_id: u256,
+    pub listing_id: u256,
     #[key]
-    price: u256,
+    pub song_id: u256,
     #[key]
-    copies: u256
+    pub price: u256,
+    pub copies: u256
 }
 
 
 #[derive(Drop, starknet::Event)]
 pub struct ListingPurchased {
     #[key]
-    buyer: ContractAddress,
+    pub buyer: ContractAddress,
     #[key]
-    song_id: u256,
+    pub seller: ContractAddress,
     #[key]
-    price: u256,
+    pub listing_id: u256,
     #[key]
-    copies: u256
+    pub song_id: u256,
+    pub price: u256,
+    pub copies: u256,
+    pub total_cost: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct ListingRemoved {
+    #[key]
+    pub seller: ContractAddress,
+    #[key]
+    pub listing_id: u256,
+    #[key]
+    pub song_id: u256,
+    pub removed_copies: u256,
+    pub remaining_copies: u256,
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct FundsWithdrawn {
+    #[key]
+    pub owner: ContractAddress,
+    #[key]
+    pub recipient: ContractAddress,
+    pub amount: u256,
 }

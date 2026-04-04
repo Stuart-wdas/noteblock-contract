@@ -1,22 +1,27 @@
 'use client';
 
-import {useMemo, useState} from 'react';
-import {Input} from '@/components/ui/input';
-import {useAudioPlayer} from '@/providers/AudioPlayerProvider';
+import { useMemo, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import {
+  PlaylistCollection,
+  Song,
+  useAudioPlayer,
+} from '@/providers/AudioPlayerProvider';
 import NewPlaylistComp from '@/components/NewPlaylistComp';
 import LibraryView from './LibraryView';
+import AlbumCover from '@/components/AlbumCover';
 
 export function PlaylistView() {
   const [searchTerm, setSearchTerm] = useState('');
-  const {libraryView} = useAudioPlayer();
+  const { libraryView } = useAudioPlayer();
 
-  const filteredPlaylists = useMemo(() => {
+  const songs = useMemo(() => {
     const playlists = libraryView?.partitioned.playlists ?? [];
     const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
     if (!normalizedSearchTerm) return playlists;
     return playlists.filter((playlist) =>
-      playlist.title.toLowerCase().includes(normalizedSearchTerm)
+      playlist.title.toLowerCase().includes(normalizedSearchTerm),
     );
   }, [libraryView?.partitioned.playlists, searchTerm]);
 
@@ -32,14 +37,23 @@ export function PlaylistView() {
         <NewPlaylistComp />
       </div>
 
-      {filteredPlaylists.length === 0 ? (
+      {songs.length === 0 ? (
         <p className='text-sm text-zinc-400'>
           {searchTerm.trim()
             ? 'No playlists match your search.'
             : 'No playlists yet. Create your first one.'}
         </p>
       ) : (
-        <LibraryView songs={filteredPlaylists} />
+        <div className='grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 z-0'>
+          {songs?.map((song: PlaylistCollection) => (
+            <div
+              key={song.id}
+              className='rounded-2xl  p-2.5 transition hover:border-orange-400/35 hover:bg-black/35'
+            >
+              <AlbumCover album={song} variant='playlist' />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -103,7 +103,7 @@ export default function BottomNavBar() {
           </div>
         </aside>
 
-        <main className='relative h-full w-full overflow-hidden'>
+        <main className='relative h-full w-full overflow-y-hidden'>
           <div className='h-full overflow-y-scroll [scrollbar-gutter:stable] px-4 pb-10 pt-4 sm:px-5 md:px-8 md:pt-8'>
             {activeItem && activeTab !== 'home' ? (
               <div className='mb-5 hidden items-center justify-between md:flex'>

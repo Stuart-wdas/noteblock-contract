@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo, useState} from 'react';
+import { useMemo, useState } from 'react';
 import {
   Drawer,
   DrawerTrigger,
@@ -9,14 +9,14 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
-import {Input} from '@/components/ui/input';
-import {Button} from '@/components/ui/button';
-import {Camera, CirclePlus, X} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Camera, CirclePlus, X } from 'lucide-react';
 import Image from 'next/image';
 import AddSongsComp from './AddSongsComp';
-import {useWallet} from '@/providers/StarknetProvider';
-import {useQueryClient} from '@tanstack/react-query';
-import {useAudioPlayer} from '@/providers/AudioPlayerProvider';
+import { useWallet } from '@/providers/StarknetProvider';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
 
 export default function NewPlaylistComp() {
   const [open, setOpen] = useState(false);
@@ -25,14 +25,14 @@ export default function NewPlaylistComp() {
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const [status, setStatus] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const {address} = useWallet();
+  const { address } = useWallet();
   const queryClient = useQueryClient();
-  const {libraryView} = useAudioPlayer();
+  const { libraryView } = useAudioPlayer();
 
   const selectedSongsById = useMemo(() => {
     const selectedIdSet = new Set(selectedSongIds);
-    const selectedSongs = (libraryView?.partitioned?.songs ?? []).filter((song) =>
-      selectedIdSet.has(song.id),
+    const selectedSongs = (libraryView?.partitioned?.songs ?? []).filter(
+      (song) => selectedIdSet.has(song.id),
     );
 
     return new Map(selectedSongs.map((song) => [song.id, song]));
@@ -127,11 +127,12 @@ export default function NewPlaylistComp() {
         if (!nextOpen && !isCreating) {
           resetDraft();
         }
-      }}>
+      }}
+    >
       <DrawerTrigger asChild>
         <CirclePlus size={40} fill='white' color='black' />
       </DrawerTrigger>
-      <DrawerContent className='fixed -top-15 bg-secondary rounded-t-xl px-6 z-999 border-none'>
+      <DrawerContent className='fixed top-2 bg-secondary rounded-t-xl px-6 z-999 border-none'>
         <DrawerHeader className='flex justify-between items-center'>
           <DrawerTitle className='text-white'>Create New Playlist</DrawerTitle>
           <DrawerDescription className='flex gap-2 w-full justify-between'>
@@ -163,7 +164,7 @@ export default function NewPlaylistComp() {
               <>
                 <label
                   htmlFor='cover-upload'
-                  className='w-[100px] h-[100px] rounded-md bg-gray-800 text-white text-sm flex items-center justify-center cursor-pointer'
+                  className='w-25 h-25 rounded-md border-2 text-white text-sm flex items-center justify-center cursor-pointer'
                 >
                   <Camera />
                 </label>
@@ -213,7 +214,9 @@ export default function NewPlaylistComp() {
                         key={songId}
                         className='flex items-center justify-between rounded-md border border-zinc-700 bg-zinc-950/40 px-2 py-1'
                       >
-                        <p className='truncate text-xs text-zinc-400'>{songId}</p>
+                        <p className='truncate text-xs text-zinc-400'>
+                          {songId}
+                        </p>
                         <Button
                           type='button'
                           variant='ghost'
@@ -240,8 +243,12 @@ export default function NewPlaylistComp() {
                           className='h-8 w-8 rounded object-cover'
                         />
                         <div className='min-w-0'>
-                          <p className='truncate text-sm text-white'>{song.title}</p>
-                          <p className='truncate text-xs text-zinc-400'>{song.artist}</p>
+                          <p className='truncate text-sm text-white'>
+                            {song.title}
+                          </p>
+                          <p className='truncate text-xs text-zinc-400'>
+                            {song.artist}
+                          </p>
                         </div>
                       </div>
                       <Button

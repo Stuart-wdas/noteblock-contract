@@ -1,12 +1,12 @@
 'use client';
 
-import {useRef} from 'react';
-import {useAudioPlayer} from '@/providers/AudioPlayerProvider';
-import {Volume2, VolumeX} from 'lucide-react';
-import {motion, useMotionValue, useTransform} from 'framer-motion';
+import { useRef } from 'react';
+import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
+import { Volume2, VolumeX } from 'lucide-react';
+import { motion, useMotionValue, useTransform } from 'framer-motion';
 
 export default function VolumeBar() {
-  const {volume, currentVolume} = useAudioPlayer();
+  const { volume, currentVolume } = useAudioPlayer();
   const barRef = useRef<HTMLDivElement>(null);
   const dragX = useMotionValue(0);
 
@@ -26,16 +26,17 @@ export default function VolumeBar() {
   }
 
   return (
-    <div className="w-full flex mt-2 place-items-center select-none">
+    <div className='w-full flex mt-2 place-items-center select-none'>
       <VolumeX size={20} />
       <div
         ref={barRef}
-        className="relative w-full h-2 rounded-full bg-gradient-to-r from-green-400 to-blue-500 cursor-pointer mx-5">
+        className='relative w-full h-2 rounded-full bg-linear-to-r from-green-400 to-blue-500 cursor-pointer mx-5'
+      >
         <motion.div
-          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 shadow-md cursor-grab active:cursor-grabbing bg-white rounded-full"
-          drag="x"
+          className='absolute top-1/2 -translate-y-1/2 w-5 h-5 shadow-md cursor-grab active:cursor-grabbing bg-white rounded-full'
+          drag='x'
           dragConstraints={barRef}
-          style={{x: dragX}}
+          style={{ x: dragX }}
           // animate knob center instead of left edge
           animate={{
             x:

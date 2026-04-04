@@ -72,7 +72,7 @@ function TabItem({
       {isActive ? (
         <motion.span
           layoutId='studio-active-tab'
-          className='absolute inset-0 rounded-xl bg-gradient-to-br from-pink-500 via-red-500 to-orange-500'
+          className='absolute inset-0 rounded-xl bg-linear-to-br from-pink-500 via-red-500 to-orange-500'
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
         />
       ) : null}

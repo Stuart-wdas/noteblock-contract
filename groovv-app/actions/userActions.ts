@@ -1,7 +1,7 @@
 'use server';
 
-import {eq} from 'drizzle-orm';
-import {db} from '@/lib/db';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
 import {
   albums,
   playlists,
@@ -13,7 +13,7 @@ import {
 
 function toDefined<T extends Record<string, unknown>>(value: T) {
   return Object.fromEntries(
-    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined)
+    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined),
   ) as Partial<T>;
 }
 
@@ -34,7 +34,7 @@ export async function updateUser(
     displayName?: string;
     avatarUrl?: string;
     bio?: string;
-  }
+  },
 ) {
   const updateData = toDefined(updates);
 
@@ -63,15 +63,6 @@ export async function deleteUser(contractAddress: string) {
 }
 
 // ========== PLAYLIST ACTIONS ==========
-export async function createPlaylist(data: {
-  title: string;
-  userId: string;
-  isPublic?: boolean;
-  coverSongId?: string;
-}) {
-  const [playlist] = await db.insert(playlists).values(data).returning();
-  return playlist;
-}
 
 export async function updatePlaylist(
   id: number,
@@ -79,7 +70,7 @@ export async function updatePlaylist(
     title?: string;
     isPublic?: boolean;
     coverSongId?: string;
-  }
+  },
 ) {
   const updateData = toDefined(updates);
 
@@ -99,7 +90,10 @@ export async function updatePlaylist(
 }
 
 export async function deletePlaylist(id: number) {
-  const [playlist] = await db.delete(playlists).where(eq(playlists.id, id)).returning();
+  const [playlist] = await db
+    .delete(playlists)
+    .where(eq(playlists.id, id))
+    .returning();
   return playlist ?? null;
 }
 
@@ -109,7 +103,10 @@ export async function createTokenOwnership(data: {
   songid: string;
   balance: string;
 }) {
-  const [tokenOwnership] = await db.insert(tokenOwnerships).values(data).returning();
+  const [tokenOwnership] = await db
+    .insert(tokenOwnerships)
+    .values(data)
+    .returning();
   return tokenOwnership;
 }
 
@@ -120,7 +117,7 @@ export async function createTokensOwnership(data: {
 }) {
   const album = await db.query.albums.findFirst({
     where: eq(albums.id, data.albumId),
-    with: {songs: true},
+    with: { songs: true },
   });
 
   if (!album?.songs?.length) {
@@ -136,25 +133,6 @@ export async function createTokensOwnership(data: {
   return db.insert(tokenOwnerships).values(values).returning();
 }
 
-export async function updateTokenBalance(id: number, balance: string) {
-  const [tokenOwnership] = await db
-    .update(tokenOwnerships)
-    .set({balance, updatedAt: new Date()})
-    .where(eq(tokenOwnerships.id, id))
-    .returning();
-
-  return tokenOwnership ?? null;
-}
-
-export async function deleteTokenOwnership(id: number) {
-  const [tokenOwnership] = await db
-    .delete(tokenOwnerships)
-    .where(eq(tokenOwnerships.id, id))
-    .returning();
-
-  return tokenOwnership ?? null;
-}
-
 // ========== STREAM SESSION ==========
 export async function createStreamSession(data: {
   userId: string;
@@ -162,14 +140,17 @@ export async function createStreamSession(data: {
   ipHash?: string;
   device?: string;
 }) {
-  const [streamSession] = await db.insert(streamSessions).values(data).returning();
+  const [streamSession] = await db
+    .insert(streamSessions)
+    .values(data)
+    .returning();
   return streamSession;
 }
 
 export async function endStreamSession(id: string) {
   const [streamSession] = await db
     .update(streamSessions)
-    .set({endedAt: new Date()})
+    .set({ endedAt: new Date() })
     .where(eq(streamSessions.id, id))
     .returning();
 

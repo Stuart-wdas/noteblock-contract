@@ -1,12 +1,20 @@
 'use server';
 
-import {and, eq} from 'drizzle-orm';
-import {db} from '@/lib/db';
-import {albums, playlistItems, songs, tokenOwnerships, users} from '@/lib/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import {
+  albums,
+  marketListings,
+  playlistItems,
+  songs,
+  tokenOwnerships,
+  users,
+} from '@/lib/db/schema';
+import { syncSongMarketSnapshot } from '@/lib/market/listingSnapshot';
 
 function toDefined<T extends Record<string, unknown>>(value: T) {
   return Object.fromEntries(
-    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined)
+    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined),
   ) as Partial<T>;
 }
 
@@ -20,12 +28,13 @@ export async function createSong(data: {
   releaseDate: Date;
   cid: string;
   cover: string;
+  listingId?: string | null;
   price?: string;
   copies?: number;
   albumId?: number;
   owner?: string;
 }) {
-  const {owner: rawOwner, ...songData} = data;
+  const { owner: rawOwner, ...songData } = data;
   const owner = rawOwner?.trim();
 
   return db.transaction(async (tx) => {
@@ -38,12 +47,39 @@ export async function createSong(data: {
           ? String(Math.floor(mintedCopies))
           : '1';
 
-      await tx.insert(users).values({contractAddress: owner}).onConflictDoNothing();
+      await tx
+        .insert(users)
+        .values({ contractAddress: owner })
+        .onConflictDoNothing();
       await tx.insert(tokenOwnerships).values({
         owner,
         songid: song.id,
         balance: ownershipBalance,
       });
+
+      if (data.listingId && Number(data.copies ?? 0) > 0) {
+        await tx
+          .insert(marketListings)
+          .values({
+            listingId: data.listingId,
+            songId: song.id,
+            seller: owner,
+            price: data.price?.trim() || '0',
+            copies: Number(data.copies),
+            isActive: true,
+          })
+          .onConflictDoUpdate({
+            target: marketListings.listingId,
+            set: {
+              songId: song.id,
+              seller: owner,
+              price: data.price?.trim() || '0',
+              copies: Number(data.copies),
+              isActive: true,
+              updatedAt: new Date(),
+            },
+          });
+      }
     }
 
     return song;
@@ -60,15 +96,16 @@ export async function updateSong(
     releaseDate: Date;
     cid: string;
     cover: string;
+    listingId?: string | null;
     price: string;
     copies: number;
     albumId?: number;
-  }>
+  }>,
 ) {
   const updateData = toDefined(updates);
 
   if (Object.keys(updateData).length === 0) {
-    return db.query.songs.findFirst({where: eq(songs.id, id)});
+    return db.query.songs.findFirst({ where: eq(songs.id, id) });
   }
 
   const [song] = await db
@@ -105,12 +142,12 @@ export async function updateAlbum(
     genre: string;
     cover: string;
     releaseDate: Date;
-  }>
+  }>,
 ) {
   const updateData = toDefined(updates);
 
   if (Object.keys(updateData).length === 0) {
-    return db.query.albums.findFirst({where: eq(albums.id, id)});
+    return db.query.albums.findFirst({ where: eq(albums.id, id) });
   }
 
   const [album] = await db
@@ -151,11 +188,12 @@ export async function listOwnedSongOnMarket(data: {
   songId: string;
   price: string;
   copies: number;
+  listingId?: string | null;
 }) {
   const ownership = await db.query.tokenOwnerships.findFirst({
     where: and(
       eq(tokenOwnerships.owner, data.owner),
-      eq(tokenOwnerships.songid, data.songId)
+      eq(tokenOwnerships.songid, data.songId),
     ),
   });
 
@@ -163,7 +201,6 @@ export async function listOwnedSongOnMarket(data: {
     throw new Error('You do not own this song');
   }
 
-  const ownedBalance = Number(ownership.balance || 0);
   const requestedCopies = Number(data.copies);
   const requestedPrice = Number(data.price);
 
@@ -176,19 +213,69 @@ export async function listOwnedSongOnMarket(data: {
       throw new Error('Price must be greater than zero');
     }
 
-    if (Number.isFinite(ownedBalance) && requestedCopies > ownedBalance) {
-      throw new Error('Cannot list more copies than you own');
+    const listingId = data.listingId?.trim();
+    if (!listingId) {
+      throw new Error('Missing listing id from on-chain listing response');
+    }
+
+    await db
+      .insert(marketListings)
+      .values({
+        listingId,
+        songId: data.songId,
+        seller: data.owner,
+        price: data.price.trim(),
+        copies: requestedCopies,
+        isActive: true,
+      })
+      .onConflictDoUpdate({
+        target: marketListings.listingId,
+        set: {
+          songId: data.songId,
+          seller: data.owner,
+          price: data.price.trim(),
+          copies: requestedCopies,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+  } else {
+    const listingId = data.listingId?.trim();
+    if (listingId) {
+      await db
+        .update(marketListings)
+        .set({
+          copies: 0,
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(marketListings.listingId, listingId),
+            eq(marketListings.seller, data.owner),
+          ),
+        );
+    } else {
+      await db
+        .update(marketListings)
+        .set({
+          copies: 0,
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(marketListings.songId, data.songId),
+            eq(marketListings.seller, data.owner),
+            eq(marketListings.isActive, true),
+          ),
+        );
     }
   }
 
-  const [song] = await db
-    .update(songs)
-    .set({
-      price: data.price.trim(),
-      copies: requestedCopies,
-    })
-    .where(eq(songs.id, data.songId))
-    .returning();
+  await syncSongMarketSnapshot(data.songId);
 
-  return song ?? null;
+  return db.query.songs.findFirst({
+    where: eq(songs.id, data.songId),
+  });
 }

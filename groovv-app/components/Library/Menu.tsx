@@ -19,7 +19,7 @@ import { ArtistView } from './MenuViews/ArtistsView';
 import { AlbumView } from './MenuViews/AlbumsView';
 import { SongsView } from './MenuViews/SongsView';
 import { GenreView } from './MenuViews/GenresView';
-import { Album, useAudioPlayer } from '@/providers/AudioPlayerProvider';
+import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
 import { Header } from '../Header';
 import SongItem from '../Song/SongItem';
 import AlbumCover from '../AlbumCover';
@@ -92,7 +92,7 @@ export default function Menu() {
                 <TabsTrigger
                   value={item.value}
                   onClick={() => setMobileActiveTab(item.value)}
-                  className='flex w-full items-center justify-between rounded px-2 pb-2 text-left hover:bg-gray-800 data-[state=active]:bg-transparent'
+                  className='flex w-full items-center justify-between rounded px-2 pb-2 text-left data-[state=active]:bg-transparent'
                 >
                   <div className='flex items-center space-x-2'>
                     {item.icon}
@@ -111,21 +111,7 @@ export default function Menu() {
                 <p className='text-sm text-zinc-400'>No recent songs yet.</p>
               ) : (
                 recentlyAddedSongs.map((song) => (
-                  <AlbumCover
-                    key={song.id}
-                    album={
-                      {
-                        id: song.id,
-                        title: song.title,
-                        artist: song.artist,
-                        genre: song.genre,
-                        cover: song.cover,
-                        songs: [song],
-                        releaseDate: song.releaseDate,
-                      } as Album
-                    }
-                    // variant='library'
-                  />
+                  <AlbumCover key={song.id} album={song} variant='regular' />
                 ))
               )}
             </div>
@@ -139,8 +125,8 @@ export default function Menu() {
                   initial={{ x: '100%' }}
                   animate={{ x: 0 }}
                   exit={{ x: '100%' }}
-                  transition={{ duration: 0.3 }}
-                  className='fixed inset-0 top-0 z-[1001] flex flex-col bg-black'
+                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                  className='fixed inset-0 top-0 z-1000 flex flex-col bg-black'
                 >
                   <div className='flex w-screen flex-col items-start justify-between gap-4 px-4 py-4'>
                     <button
@@ -220,8 +206,8 @@ export default function Menu() {
                 </article>
               ))}
             </section>
-
-            <section className='rounded-2xl border border-white/10 bg-black/35 p-4 md:p-5'>
+            {/* rounded-2xl border border-white/10 bg-black/35 */}
+            <section className=''>
               <h2 className='text-xl font-semibold md:text-2xl'>
                 Recently Added
               </h2>
@@ -229,14 +215,14 @@ export default function Menu() {
                 Fresh additions from your collection.
               </p>
               <div className='mt-5'>
-                <div className='space-y-2'>
+                <div className='space-y-4 gap-4 grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 grid-cols-1'>
                   {recentlyAddedSongs.length === 0 ? (
                     <p className='text-sm text-zinc-400'>
                       No recent songs yet.
                     </p>
                   ) : (
                     recentlyAddedSongs.map((song) => (
-                      <SongItem key={song.id} song={song} variant='library' />
+                      <AlbumCover key={song.id} album={song} />
                     ))
                   )}
                 </div>

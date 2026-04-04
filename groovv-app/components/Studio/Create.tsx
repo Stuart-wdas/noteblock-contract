@@ -1,7 +1,11 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { createAlbum, createSong } from '@/actions/musicActions';
+import {
+  createAlbum as createAlbumRecord,
+  createSong,
+  updateSong,
+} from '@/actions/musicActions';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -10,6 +14,13 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -20,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useWallet } from '@/providers/StarknetProvider';
+import { useGroovv } from '@/providers/GroovProvider';
 import {
   AudioLines,
   Coins,
@@ -37,6 +49,7 @@ type AlbumOption = {
   id: number;
   title: string;
   artist: string;
+  genre: string;
 };
 
 type UploadedSong = {
@@ -66,6 +79,27 @@ function formatReleaseDate(value: string) {
   });
 }
 
+function toOnchainDateValue(date = new Date()) {
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getUTCDate()}`.padStart(2, '0');
+  return Number(`${year}${month}${day}`);
+}
+
+function normalizeOnchainId(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    return BigInt(trimmed).toString();
+  } catch {
+    return null;
+  }
+}
+
+function getAlbumMapStorageKey(address: string) {
+  return `groovv-album-map:${address.toLowerCase()}`;
+}
+
 async function getAudioDurationInSeconds(file: File): Promise<number> {
   const objectUrl = URL.createObjectURL(file);
   const audio = document.createElement('audio');
@@ -90,11 +124,18 @@ async function getAudioDurationInSeconds(file: File): Promise<number> {
 
 export default function Create() {
   const { address, library } = useWallet();
+  const {
+    mintSong,
+    createAlbum: createAlbumOnChain,
+    addSongToAlbum,
+    isConfigured,
+  } = useGroovv();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState('');
 
   const [isAlbumDialogOpen, setIsAlbumDialogOpen] = useState(false);
   const [isSongDialogOpen, setIsSongDialogOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
   const [albumStep, setAlbumStep] = useState(1);
   const [songStep, setSongStep] = useState(1);
 
@@ -105,6 +146,10 @@ export default function Create() {
   const [albumGenre, setAlbumGenre] = useState('');
   const [albumCoverFile, setAlbumCoverFile] = useState<File | null>(null);
   const [albumCoverPreview, setAlbumCoverPreview] = useState('/logo.svg');
+  const [albumSongQuery, setAlbumSongQuery] = useState('');
+  const [selectedAlbumSongIds, setSelectedAlbumSongIds] = useState<string[]>(
+    [],
+  );
   const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
 
   const [songTitle, setSongTitle] = useState('');
@@ -127,6 +172,22 @@ export default function Create() {
   const artistName =
     library?.user?.displayName?.trim() || address?.trim() || '';
 
+  const readAlbumMap = () => {
+    if (!address || typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(getAlbumMapStorageKey(address));
+      if (!raw) return {};
+      return JSON.parse(raw) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  };
+
+  const writeAlbumMap = (map: Record<string, string>) => {
+    if (!address || typeof window === 'undefined') return;
+    window.localStorage.setItem(getAlbumMapStorageKey(address), JSON.stringify(map));
+  };
+
   const uploadedSongs = useMemo(() => {
     const songsMap = new Map<string, UploadedSong>();
     [...sessionUploads, ...mySongs].forEach((song) =>
@@ -147,6 +208,20 @@ export default function Create() {
       ),
     [uploadedSongs],
   );
+
+  const filteredAlbumSongs = useMemo(() => {
+    const normalizedQuery = albumSongQuery.trim().toLowerCase();
+    if (!normalizedQuery) return uploadedSongs;
+
+    return uploadedSongs.filter((song) => {
+      return (
+        song.title.toLowerCase().includes(normalizedQuery) ||
+        song.genre.toLowerCase().includes(normalizedQuery) ||
+        song.artist.toLowerCase().includes(normalizedQuery) ||
+        song.id.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [albumSongQuery, uploadedSongs]);
 
   const canAdvanceAlbumStep1 = albumTitle.trim() && albumGenre.trim();
   const canAdvanceSongStep1 =
@@ -171,6 +246,8 @@ export default function Create() {
     setAlbumStep(1);
     setAlbumTitle('');
     setAlbumGenre('');
+    setAlbumSongQuery('');
+    setSelectedAlbumSongIds([]);
     setPreviewFile(null, setAlbumCoverFile, setAlbumCoverPreview);
   };
 
@@ -224,6 +301,22 @@ export default function Create() {
   };
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const media = window.matchMedia('(max-width: 767px)');
+    const syncMedia = () => setIsMobileView(media.matches);
+    syncMedia();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', syncMedia);
+      return () => media.removeEventListener('change', syncMedia);
+    }
+
+    media.addListener(syncMedia);
+    return () => media.removeListener(syncMedia);
+  }, []);
+
+  useEffect(() => {
     const loadAlbums = async () => {
       try {
         const response = await fetch('/api/market/albums');
@@ -234,6 +327,7 @@ export default function Create() {
               id: album.id,
               title: album.title,
               artist: album.artist,
+              genre: album.genre ?? 'unknown',
             })),
           );
         }
@@ -257,31 +351,114 @@ export default function Create() {
     };
   }, [albumCoverPreview, songCoverPreview]);
 
+  const toggleAlbumSong = (songId: string) => {
+    setSelectedAlbumSongIds((prev) =>
+      prev.includes(songId)
+        ? prev.filter((id) => id !== songId)
+        : [...prev, songId],
+    );
+  };
+
+  const selectAllFilteredAlbumSongs = () => {
+    const validSongIds = filteredAlbumSongs
+      .filter((song) => Boolean(normalizeOnchainId(song.id)))
+      .map((song) => song.id);
+
+    setSelectedAlbumSongIds((prev) => {
+      const merged = new Set([...prev, ...validSongIds]);
+      return Array.from(merged);
+    });
+  };
+
   const handleCreateAlbum = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isWalletConnected || !artistName) {
       setStatus('Connect your wallet before creating albums.');
       return;
     }
+
+    if (selectedAlbumSongIds.length === 0) {
+      setStatus('Select at least one song to create an on-chain album.');
+      return;
+    }
+
+    const selectedOnchainSongIds = selectedAlbumSongIds
+      .map((songId) => normalizeOnchainId(songId))
+      .filter((songId): songId is string => Boolean(songId));
+
+    if (selectedOnchainSongIds.length !== selectedAlbumSongIds.length) {
+      setStatus(
+        'One or more selected songs do not have a valid on-chain song id.',
+      );
+      return;
+    }
+
     setIsCreatingAlbum(true);
     setStatus('Creating album...');
     try {
+      if (!isConfigured) {
+        throw new Error(
+          'Contract not configured. Set NEXT_PUBLIC_GROOVV_CONTRACT_ADDRESS.',
+        );
+      }
+
       const cover = await uploadCover(albumCoverFile);
-      const album = await createAlbum({
+      const releaseDate = new Date();
+      const releaseDateValue = toOnchainDateValue(releaseDate);
+
+      setStatus('Creating album on-chain...');
+      const onchainAlbum = await createAlbumOnChain({
+        artistAddress: address!,
+        name: albumTitle.trim(),
+        genre: albumGenre.trim(),
+        releaseDate: releaseDateValue,
+        songIds: selectedOnchainSongIds,
+      });
+
+      if (!onchainAlbum.albumId) {
+        throw new Error(
+          'Album creation succeeded but AlbumCreated event was not parsed.',
+        );
+      }
+
+      setStatus('Saving album metadata...');
+      const album = await createAlbumRecord({
         title: albumTitle.trim(),
         artist: artistName,
         genre: albumGenre.trim(),
         cover,
-        releaseDate: new Date(),
+        releaseDate,
       });
+
+      const albumMap = readAlbumMap();
+      albumMap[String(album.id)] = onchainAlbum.albumId;
+      writeAlbumMap(albumMap);
+
+      setStatus('Linking songs to album...');
+      await Promise.all(
+        selectedAlbumSongIds.map((songId) =>
+          updateSong(songId, { albumId: album.id }),
+        ),
+      );
+
       setAlbums((prev) => [album, ...prev]);
       setSelectedAlbumId(String(album.id));
-      setStatus(`Album "${album.title}" created.`);
+      setStatus(
+        `Album "${album.title}" created with ${selectedAlbumSongIds.length} song(s).`,
+      );
       setIsAlbumDialogOpen(false);
       resetAlbumForm();
+      await Promise.all([
+        loadMySongs(mySongsQuery),
+        queryClient.invalidateQueries({ queryKey: ['userLibrary', address] }),
+      ]);
     } catch (error) {
       console.error(error);
-      setStatus('Failed to create album.');
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Failed to create album.';
+      setStatus(message);
     } finally {
       setIsCreatingAlbum(false);
     }
@@ -305,6 +482,12 @@ export default function Create() {
     setIsCreatingSong(true);
     setStatus('Uploading track and creating song...');
     try {
+      if (!isConfigured) {
+        throw new Error(
+          'Contract not configured. Set NEXT_PUBLIC_GROOVV_CONTRACT_ADDRESS.',
+        );
+      }
+
       const cover = await uploadCover(songCoverFile);
       const uploadFormData = new FormData();
       uploadFormData.append('file', songFile);
@@ -319,22 +502,77 @@ export default function Create() {
 
       const duration =
         songDuration ?? (await getAudioDurationInSeconds(songFile));
-      const songId =
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.round(Math.random() * 100000)}`;
+      const releaseDate = new Date();
+      const releaseDateValue = toOnchainDateValue(releaseDate);
+
+      setStatus('Minting song on-chain...');
+      const minted = await mintSong({
+        artistAddress: address!,
+        title: songTitle.trim(),
+        genre: songGenre.trim(),
+        lengthSeconds: duration,
+        releaseDate: releaseDateValue,
+        cid: uploadPayload.url,
+        price: Number(songPrice),
+        copies: Number(songCopies),
+      });
+
+      if (!minted.songId) {
+        throw new Error(
+          'Song mint succeeded but SongCreated event was not parsed.',
+        );
+      }
+
+      const onchainSongId = minted.songId;
+      const onchainListingId = minted.listingId ?? onchainSongId;
+
+      if (selectedAlbumId !== 'none') {
+        const albumMap = readAlbumMap();
+        const existingOnchainAlbumId = albumMap[selectedAlbumId];
+
+        if (existingOnchainAlbumId) {
+          setStatus('Adding song to album on-chain...');
+          await addSongToAlbum(existingOnchainAlbumId, onchainSongId);
+        } else {
+          const selectedAlbum = albums.find(
+            (album) => album.id === Number(selectedAlbumId),
+          );
+          if (!selectedAlbum) {
+            throw new Error('Selected album was not found.');
+          }
+
+          setStatus('Creating album on-chain...');
+          const createdAlbumOnChain = await createAlbumOnChain({
+            artistAddress: address!,
+            name: selectedAlbum.title,
+            genre: selectedAlbum.genre || songGenre.trim(),
+            releaseDate: releaseDateValue,
+            songIds: [onchainSongId],
+          });
+
+          if (!createdAlbumOnChain.albumId) {
+            throw new Error(
+              'Album creation succeeded but AlbumCreated event was not parsed.',
+            );
+          }
+
+          albumMap[selectedAlbumId] = createdAlbumOnChain.albumId;
+          writeAlbumMap(albumMap);
+        }
+      }
 
       const createdSong = await createSong({
-        id: songId,
+        id: onchainSongId,
         title: songTitle.trim(),
         artist: artistName,
         genre: songGenre.trim(),
         length: duration,
-        releaseDate: new Date(),
+        releaseDate,
         cid: uploadPayload.url,
         cover,
         albumId:
           selectedAlbumId !== 'none' ? Number(selectedAlbumId) : undefined,
+        listingId: onchainListingId,
         price: songPrice.trim(),
         copies: Number(songCopies),
         owner: address,
@@ -357,7 +595,11 @@ export default function Create() {
       ]);
     } catch (error) {
       console.error(error);
-      setStatus('Failed to create song listing.');
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Failed to create song listing.';
+      setStatus(message);
     } finally {
       setIsCreatingSong(false);
     }
@@ -365,12 +607,14 @@ export default function Create() {
 
   return (
     <div className='w-full max-w-full overflow-x-hidden space-y-4 pt-4 pb-2'>
-      <section className='rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4'>
+      {/* <section className='rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4'> */}
+      <section className=''>
         <p className='text-xs tracking-[0.25em] text-zinc-400 uppercase'>
           Studio
         </p>
         <h2 className='text-2xl font-semibold text-white'>Create & Mint</h2>
         <div className='mt-3 rounded-lg border border-zinc-800 bg-black/50 p-3 text-xs text-zinc-300'>
+          {/* <div className='mt-3  text-xs text-zinc-300'> */}
           <div className='flex items-center gap-2 text-zinc-100'>
             <UserRound className='h-4 w-4 text-orange-400' />
             <span>Artist Name</span>
@@ -382,46 +626,8 @@ export default function Create() {
         </div>
       </section>
 
-      <section className='rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4'>
-        <div className='mb-3 flex items-center gap-2'>
-          <Sparkles className='h-4 w-4 text-orange-400' />
-          <h3 className='text-base font-semibold text-white'>
-            Release Actions
-          </h3>
-        </div>
-        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-          <button
-            type='button'
-            onClick={() => {
-              setAlbumStep(1);
-              setIsAlbumDialogOpen(true);
-            }}
-            className='group rounded-xl border border-zinc-800 bg-black/40 p-4 text-left transition hover:border-orange-400/50'
-          >
-            <p className='text-sm font-semibold text-white'>Create Album</p>
-            <p className='mt-1 text-xs text-zinc-400'>
-              2-step form + cover upload
-            </p>
-            <Disc3 className='mt-2 h-5 w-5 text-orange-400 transition group-hover:scale-110' />
-          </button>
-          <button
-            type='button'
-            onClick={() => {
-              setSongStep(1);
-              setIsSongDialogOpen(true);
-            }}
-            className='group rounded-xl border border-zinc-800 bg-black/40 p-4 text-left transition hover:border-pink-400/50'
-          >
-            <p className='text-sm font-semibold text-white'>Mint Song</p>
-            <p className='mt-1 text-xs text-zinc-400'>
-              2-step form + auto length/date
-            </p>
-            <PlusCircle className='mt-2 h-5 w-5 text-pink-400 transition group-hover:scale-110' />
-          </button>
-        </div>
-      </section>
-
-      <section className='rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4'>
+      {/* <section className='rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4'> */}
+      <section className=''>
         <div className='mb-3 flex items-center justify-between gap-3'>
           <div className='flex items-center gap-2'>
             <Tag className='h-4 w-4 text-orange-400' />
@@ -467,10 +673,11 @@ export default function Create() {
                 void loadMySongs(mySongsQuery);
               }
             }}
+            className='focus-visible:border active:border border border-white/20'
           />
           <Button
             type='button'
-            className='sm:w-auto bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
+            className='sm:w-auto bg-linear-to-br from-pink-500 via-red-500 to-orange-500 text-white'
             onClick={() => void loadMySongs(mySongsQuery)}
             disabled={!isWalletConnected || isLoadingMySongs}
           >
@@ -523,6 +730,46 @@ export default function Create() {
         </div>
       </section>
 
+      {/* <section className='rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4'> */}
+      <section className=''>
+        <div className='mb-3 flex items-center gap-2'>
+          <Sparkles className='h-4 w-4 text-orange-400' />
+          <h3 className='text-base font-semibold text-white'>
+            Release Actions
+          </h3>
+        </div>
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <button
+            type='button'
+            onClick={() => {
+              setAlbumStep(1);
+              setIsAlbumDialogOpen(true);
+            }}
+            className='group rounded-xl border border-zinc-800 bg-black/40 p-4 text-left transition hover:border-orange-400/50'
+          >
+            <p className='text-sm font-semibold text-white'>Create Album</p>
+            <p className='mt-1 text-xs text-zinc-400'>
+              2-step form + cover upload
+            </p>
+            <Disc3 className='mt-2 h-5 w-5 text-orange-400 transition group-hover:scale-110' />
+          </button>
+          <button
+            type='button'
+            onClick={() => {
+              setSongStep(1);
+              setIsSongDialogOpen(true);
+            }}
+            className='group rounded-xl border border-zinc-800 bg-black/40 p-4 text-left transition hover:border-pink-400/50'
+          >
+            <p className='text-sm font-semibold text-white'>Mint Song</p>
+            <p className='mt-1 text-xs text-zinc-400'>
+              2-step form + auto length/date
+            </p>
+            <PlusCircle className='mt-2 h-5 w-5 text-pink-400 transition group-hover:scale-110' />
+          </button>
+        </div>
+      </section>
+
       <div className='rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-sm text-zinc-300 break-words'>
         {status ? (
           <p className='text-orange-300'>{status}</p>
@@ -531,271 +778,390 @@ export default function Create() {
         )}
       </div>
 
-      <Drawer
+      <ResponsiveCreatePanel
+        isMobileView={isMobileView}
         open={isAlbumDialogOpen}
+        title='Create Album'
+        description={`Step ${albumStep} of 2`}
         onOpenChange={(open) => {
           setIsAlbumDialogOpen(open);
           if (!open) resetAlbumForm();
         }}
       >
-        <DrawerContent className='fixed -top-15 bg-secondary rounded-t-xl px-6 z-999 border-none text-white'>
-          <DrawerHeader>
-            <DrawerTitle className='text-white'>Create Album</DrawerTitle>
-            <DrawerDescription className='text-white'>
-              Step {albumStep} of 2
-            </DrawerDescription>
-          </DrawerHeader>
-          <form className='space-y-3 px-4 pb-4' onSubmit={handleCreateAlbum}>
-            {albumStep === 1 ? (
-              <>
-                <Field label='Album Title' htmlFor='album-title'>
-                  <Input
-                    id='album-title'
-                    className='text-white'
-                    required
-                    value={albumTitle}
-                    onChange={(e) => setAlbumTitle(e.target.value)}
-                  />
-                </Field>
-                <Field label='Genre' htmlFor='album-genre'>
-                  <Input
-                    className='text-white'
-                    id='album-genre'
-                    required
-                    value={albumGenre}
-                    onChange={(e) => setAlbumGenre(e.target.value)}
-                  />
-                </Field>
-                <Field label='Cover Upload' htmlFor='album-cover-upload'>
-                  <FileUploadButton
-                    id='album-cover-upload'
-                    accept='image/png,image/jpeg,image/webp,image/gif'
-                    file={albumCoverFile}
-                    emptyLabel='Upload cover image'
-                    filledLabel='Cover image selected'
-                    onFileSelect={(file) =>
-                      setPreviewFile(
-                        file,
-                        setAlbumCoverFile,
-                        setAlbumCoverPreview,
-                      )
-                    }
-                  />
-                </Field>
-                <img
-                  src={albumCoverPreview}
-                  alt='Album cover preview'
-                  className='h-20 w-20 rounded-md border border-zinc-700 object-cover'
+        <form className='space-y-4 px-5 py-4' onSubmit={handleCreateAlbum}>
+          {albumStep === 1 ? (
+            <>
+              <Field label='Album Title' htmlFor='album-title'>
+                <Input
+                  id='album-title'
+                  className='text-white'
+                  required
+                  value={albumTitle}
+                  onChange={(e) => setAlbumTitle(e.target.value)}
                 />
-                <div className='flex justify-end'>
-                  <Button
-                    type='button'
-                    className='bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
-                    disabled={!canAdvanceAlbumStep1}
-                    onClick={() => setAlbumStep(2)}
-                  >
-                    Next
-                  </Button>
+              </Field>
+              <Field label='Genre' htmlFor='album-genre'>
+                <Input
+                  className='text-white'
+                  id='album-genre'
+                  required
+                  value={albumGenre}
+                  onChange={(e) => setAlbumGenre(e.target.value)}
+                />
+              </Field>
+              <Field label='Cover Upload' htmlFor='album-cover-upload'>
+                <FileUploadButton
+                  id='album-cover-upload'
+                  accept='image/png,image/jpeg,image/webp,image/gif'
+                  file={albumCoverFile}
+                  emptyLabel='Upload cover image'
+                  filledLabel='Cover image selected'
+                  onFileSelect={(file) =>
+                    setPreviewFile(
+                      file,
+                      setAlbumCoverFile,
+                      setAlbumCoverPreview,
+                    )
+                  }
+                />
+              </Field>
+              <img
+                src={albumCoverPreview}
+                alt='Album cover preview'
+                className='h-20 w-20 rounded-md border border-zinc-700 object-cover'
+              />
+              <div className='flex justify-end'>
+                <Button
+                  type='button'
+                  className='bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
+                  disabled={!canAdvanceAlbumStep1}
+                  onClick={() => setAlbumStep(2)}
+                >
+                  Next
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className='rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-sm space-y-1'>
+                <p className='text-zinc-300'>Title: {albumTitle}</p>
+                <p className='text-zinc-300'>Genre: {albumGenre}</p>
+                <p className='text-zinc-300'>Artist: {artistName}</p>
+                <p className='text-zinc-400'>Release Date: auto on upload</p>
+              </div>
+              <Field label='Album Songs (required)'>
+                <Input
+                  placeholder='Search songs by title, genre, artist, or id'
+                  value={albumSongQuery}
+                  onChange={(event) => setAlbumSongQuery(event.target.value)}
+                />
+                <div className='mt-2 flex items-center justify-between gap-2'>
+                  <p className='text-xs text-zinc-400'>
+                    Selected: {selectedAlbumSongIds.length}
+                  </p>
+                  <div className='flex gap-2'>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      className='h-7 px-2 text-xs'
+                      onClick={selectAllFilteredAlbumSongs}
+                      disabled={filteredAlbumSongs.length === 0}
+                    >
+                      Select all
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      className='h-7 px-2 text-xs'
+                      onClick={() => setSelectedAlbumSongIds([])}
+                      disabled={selectedAlbumSongIds.length === 0}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                 </div>
-              </>
-            ) : (
-              <>
-                <div className='rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-sm space-y-1'>
-                  <p className='text-zinc-300'>Title: {albumTitle}</p>
-                  <p className='text-zinc-300'>Genre: {albumGenre}</p>
-                  <p className='text-zinc-300'>Artist: {artistName}</p>
-                  <p className='text-zinc-400'>Release Date: auto on upload</p>
-                </div>
-                <div className='flex justify-between gap-2'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    onClick={() => setAlbumStep(1)}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    type='submit'
-                    className='bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
-                    disabled={!isWalletConnected || isCreatingAlbum}
-                  >
-                    {isCreatingAlbum ? 'Creating album...' : 'Create Album'}
-                  </Button>
-                </div>
-              </>
-            )}
-          </form>
-        </DrawerContent>
-      </Drawer>
+                <div className='mt-2 max-h-56 space-y-2 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/40 p-2'>
+                  {filteredAlbumSongs.length === 0 ? (
+                    <p className='p-2 text-sm text-zinc-400'>
+                      No songs found. Mint songs first, then add them here.
+                    </p>
+                  ) : (
+                    filteredAlbumSongs.map((song) => {
+                      const onchainSongId = normalizeOnchainId(song.id);
+                      const disabled = !onchainSongId;
+                      const selected = selectedAlbumSongIds.includes(song.id);
 
-      <Drawer
+                      return (
+                        <button
+                          key={song.id}
+                          type='button'
+                          disabled={disabled}
+                          onClick={() => toggleAlbumSong(song.id)}
+                          className={`w-full rounded-md border p-2 text-left transition ${
+                            selected
+                              ? 'border-orange-400/70 bg-orange-500/10'
+                              : 'border-zinc-800 bg-zinc-950/60 hover:border-zinc-700'
+                          } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                        >
+                          <div className='flex items-start gap-2'>
+                            <input
+                              type='checkbox'
+                              checked={selected}
+                              readOnly
+                              className='mt-1 h-4 w-4 accent-orange-500'
+                            />
+                            <div className='min-w-0'>
+                              <p className='truncate text-sm font-medium text-white'>
+                                {song.title}
+                              </p>
+                              <p className='truncate text-xs text-zinc-400'>
+                                {song.artist} | {song.genre}
+                              </p>
+                              <p className='truncate text-[11px] text-zinc-500'>
+                                Song ID: {song.id}
+                              </p>
+                              {!onchainSongId ? (
+                                <p className='text-[11px] text-red-300'>
+                                  Invalid on-chain song id
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </Field>
+              <div className='flex justify-between gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setAlbumStep(1)}
+                >
+                  Back
+                </Button>
+                <Button
+                  type='submit'
+                  className='bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
+                  disabled={
+                    !isWalletConnected ||
+                    isCreatingAlbum ||
+                    selectedAlbumSongIds.length === 0
+                  }
+                >
+                  {isCreatingAlbum ? 'Creating album...' : 'Create Album'}
+                </Button>
+              </div>
+            </>
+          )}
+        </form>
+      </ResponsiveCreatePanel>
+
+      <ResponsiveCreatePanel
+        isMobileView={isMobileView}
         open={isSongDialogOpen}
+        title='Mint Song Listing'
+        description={`Step ${songStep} of 2`}
         onOpenChange={(open) => {
           setIsSongDialogOpen(open);
           if (!open) resetSongForm();
         }}
       >
-        <DrawerContent className='fixed -top-15 bg-secondary rounded-t-xl px-6 z-999 border-none text-white'>
-          <DrawerHeader>
-            <DrawerTitle className='text-white'>Mint Song Listing</DrawerTitle>
-            <DrawerDescription className='text-white'>
-              Step {songStep} of 2
+        <form className='space-y-4 px-5 py-4' onSubmit={handleCreateSong}>
+          {songStep === 1 ? (
+            <>
+              <Field label='Song Title' htmlFor='song-title'>
+                <Input
+                  id='song-title'
+                  required
+                  className='text-white'
+                  value={songTitle}
+                  onChange={(e) => setSongTitle(e.target.value)}
+                />
+              </Field>
+              <Field label='Genre' htmlFor='song-genre'>
+                <Input
+                  id='song-genre'
+                  required
+                  className='text-white'
+                  value={songGenre}
+                  onChange={(e) => setSongGenre(e.target.value)}
+                />
+              </Field>
+              <Field label='Album'>
+                <Select value={selectedAlbumId} onValueChange={setSelectedAlbumId}>
+                  <SelectTrigger className='w-full'>
+                    <SelectValue placeholder='Select album' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='none'>Single (no album)</SelectItem>
+                    {albums.map((album) => (
+                      <SelectItem
+                        key={album.id}
+                        value={String(album.id)}
+                        className='text-white'
+                      >
+                        {album.title} - {album.artist}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <div className='grid grid-cols-2 gap-3'>
+                <Field label='Price' htmlFor='song-price'>
+                  <Input
+                    id='song-price'
+                    required
+                    type='number'
+                    className='text-white'
+                    min='1'
+                    value={songPrice}
+                    onChange={(e) => setSongPrice(e.target.value)}
+                  />
+                </Field>
+                <Field label='Copies' htmlFor='song-copies'>
+                  <Input
+                    id='song-copies'
+                    required
+                    type='number'
+                    min='1'
+                    value={songCopies}
+                    onChange={(e) => setSongCopies(e.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className='flex justify-end'>
+                <Button
+                  type='button'
+                  className='bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
+                  disabled={!canAdvanceSongStep1}
+                  onClick={() => setSongStep(2)}
+                >
+                  Next
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Field label='MP3 Upload' htmlFor='song-file'>
+                <FileUploadButton
+                  id='song-file'
+                  accept='.mp3,audio/mpeg'
+                  file={songFile}
+                  emptyLabel='Upload MP3 track'
+                  filledLabel='MP3 track selected'
+                  onFileSelect={async (file) => {
+                    setSongFile(file);
+                    if (!file) return setSongDuration(null);
+                    try {
+                      setSongDuration(await getAudioDurationInSeconds(file));
+                    } catch {
+                      setSongDuration(null);
+                      setStatus('Could not read audio duration.');
+                    }
+                  }}
+                />
+              </Field>
+              <Field label='Cover Upload' htmlFor='song-cover-upload'>
+                <FileUploadButton
+                  id='song-cover-upload'
+                  accept='image/png,image/jpeg,image/webp,image/gif'
+                  file={songCoverFile}
+                  emptyLabel='Upload song cover'
+                  filledLabel='Song cover selected'
+                  onFileSelect={(file) =>
+                    setPreviewFile(file, setSongCoverFile, setSongCoverPreview)
+                  }
+                />
+              </Field>
+              <div className='rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-sm space-y-1'>
+                <p className='flex items-center gap-2 text-zinc-300'>
+                  <UserRound className='h-4 w-4 text-orange-400' /> {artistName}
+                </p>
+                <p className='flex items-center gap-2 text-zinc-300'>
+                  <AudioLines className='h-4 w-4 text-pink-400' />{' '}
+                  {songDuration ? `${songDuration}s` : 'Duration pending'}
+                </p>
+                <p className='text-zinc-400'>Release Date: auto on upload</p>
+                <img
+                  src={songCoverPreview}
+                  alt='Song cover preview'
+                  className='h-14 w-14 rounded-md border border-zinc-700 object-cover'
+                />
+              </div>
+              <div className='flex justify-between gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setSongStep(1)}
+                >
+                  Back
+                </Button>
+                <Button
+                  type='submit'
+                  className='bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
+                  disabled={
+                    !isWalletConnected || isCreatingSong || isLoadingAlbums
+                  }
+                >
+                  {isCreatingSong ? 'Publishing...' : 'Mint Song Listing'}
+                </Button>
+              </div>
+            </>
+          )}
+        </form>
+      </ResponsiveCreatePanel>
+    </div>
+  );
+}
+
+function ResponsiveCreatePanel({
+  isMobileView,
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+}: {
+  isMobileView: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  if (isMobileView) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className='mx-auto w-full max-w-2xl border-zinc-700/80 bg-zinc-950/95 text-white'>
+          <DrawerHeader className='bg-zinc-950/90'>
+            <DrawerTitle className='text-white'>{title}</DrawerTitle>
+            <DrawerDescription className='text-zinc-300'>
+              {description}
             </DrawerDescription>
           </DrawerHeader>
-          <form className='space-y-3 px-4 pb-4' onSubmit={handleCreateSong}>
-            {songStep === 1 ? (
-              <>
-                <Field label='Song Title' htmlFor='song-title'>
-                  <Input
-                    id='song-title'
-                    required
-                    className='text-white'
-                    value={songTitle}
-                    onChange={(e) => setSongTitle(e.target.value)}
-                  />
-                </Field>
-                <Field label='Genre' htmlFor='song-genre'>
-                  <Input
-                    id='song-genre'
-                    required
-                    className='text-white'
-                    value={songGenre}
-                    onChange={(e) => setSongGenre(e.target.value)}
-                  />
-                </Field>
-                <Field label='Album'>
-                  <Select
-                    value={selectedAlbumId}
-                    onValueChange={setSelectedAlbumId}
-                  >
-                    <SelectTrigger className='w-full'>
-                      <SelectValue placeholder='Select album' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='none'>Single (no album)</SelectItem>
-                      {albums.map((album) => (
-                        <SelectItem
-                          key={album.id}
-                          value={String(album.id)}
-                          className='text-white'
-                        >
-                          {album.title} - {album.artist}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <div className='grid grid-cols-2 gap-3'>
-                  <Field label='Price' htmlFor='song-price'>
-                    <Input
-                      id='song-price'
-                      required
-                      type='number'
-                      className='text-white'
-                      min='1'
-                      value={songPrice}
-                      onChange={(e) => setSongPrice(e.target.value)}
-                    />
-                  </Field>
-                  <Field label='Copies' htmlFor='song-copies'>
-                    <Input
-                      id='song-copies'
-                      required
-                      type='number'
-                      min='1'
-                      value={songCopies}
-                      onChange={(e) => setSongCopies(e.target.value)}
-                    />
-                  </Field>
-                </div>
-                <div className='flex justify-end'>
-                  <Button
-                    type='button'
-                    className='bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
-                    disabled={!canAdvanceSongStep1}
-                    onClick={() => setSongStep(2)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <Field label='MP3 Upload' htmlFor='song-file'>
-                  <FileUploadButton
-                    id='song-file'
-                    accept='.mp3,audio/mpeg'
-                    file={songFile}
-                    emptyLabel='Upload MP3 track'
-                    filledLabel='MP3 track selected'
-                    onFileSelect={async (file) => {
-                      setSongFile(file);
-                      if (!file) return setSongDuration(null);
-                      try {
-                        setSongDuration(await getAudioDurationInSeconds(file));
-                      } catch {
-                        setSongDuration(null);
-                        setStatus('Could not read audio duration.');
-                      }
-                    }}
-                  />
-                </Field>
-                <Field label='Cover Upload' htmlFor='song-cover-upload'>
-                  <FileUploadButton
-                    id='song-cover-upload'
-                    accept='image/png,image/jpeg,image/webp,image/gif'
-                    file={songCoverFile}
-                    emptyLabel='Upload song cover'
-                    filledLabel='Song cover selected'
-                    onFileSelect={(file) =>
-                      setPreviewFile(
-                        file,
-                        setSongCoverFile,
-                        setSongCoverPreview,
-                      )
-                    }
-                  />
-                </Field>
-                <div className='rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-sm space-y-1'>
-                  <p className='flex items-center gap-2 text-zinc-300'>
-                    <UserRound className='h-4 w-4 text-orange-400' />{' '}
-                    {artistName}
-                  </p>
-                  <p className='flex items-center gap-2 text-zinc-300'>
-                    <AudioLines className='h-4 w-4 text-pink-400' />{' '}
-                    {songDuration ? `${songDuration}s` : 'Duration pending'}
-                  </p>
-                  <p className='text-zinc-400'>Release Date: auto on upload</p>
-                  <img
-                    src={songCoverPreview}
-                    alt='Song cover preview'
-                    className='h-14 w-14 rounded-md border border-zinc-700 object-cover'
-                  />
-                </div>
-                <div className='flex justify-between gap-2'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    onClick={() => setSongStep(1)}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    type='submit'
-                    className='bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 text-white'
-                    disabled={
-                      !isWalletConnected || isCreatingSong || isLoadingAlbums
-                    }
-                  >
-                    {isCreatingSong ? 'Publishing...' : 'Mint Song Listing'}
-                  </Button>
-                </div>
-              </>
-            )}
-          </form>
+          {children}
         </DrawerContent>
       </Drawer>
-    </div>
+    );
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side='right'
+        className='w-full border-zinc-700/80 bg-zinc-950/95 p-0 text-white sm:max-w-xl'
+      >
+        <SheetHeader className='border-b border-zinc-800 bg-zinc-950/90 px-5 py-4'>
+          <SheetTitle className='text-white'>{title}</SheetTitle>
+          <SheetDescription className='text-zinc-300'>
+            {description}
+          </SheetDescription>
+        </SheetHeader>
+        <div className='h-[calc(100vh-84px)] overflow-y-auto'>{children}</div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

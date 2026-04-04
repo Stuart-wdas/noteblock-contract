@@ -1,7 +1,6 @@
 import { useWallet } from '@/providers/StarknetProvider';
 import Image from 'next/image';
 import Auth from './Auth/Auth';
-import { LogOut } from 'lucide-react';
 
 export function Header() {
   const { address, disconnectWallet } = useWallet();

@@ -9,15 +9,7 @@ interface Props {
 }
 
 export default function SongControls({ song }: Props) {
-  const {
-    addToQueue,
-    playSong,
-    togglePlay,
-    isPlaying,
-    next,
-    previous,
-    currentSong,
-  } = useAudioPlayer();
+  const { next, previous } = useAudioPlayer();
 
   return (
     <div className='flex flex-col space-y-1 items-center'>

@@ -2,7 +2,7 @@
 
 import { useAudioProgress } from '@/providers/AudioPlayerProvider';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -19,6 +19,14 @@ export default function SongProgressBar({
 }) {
   const { currentTime, duration, seek } = useAudioProgress();
   const barRef = useRef<HTMLDivElement>(null);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    if (!isDesktop) {
+      setIsDesktopCollapsed(false);
+    }
+  }, [isDesktop]);
 
   const progress = currentTime / (duration || 1);
 
@@ -51,7 +59,9 @@ export default function SongProgressBar({
   }
 
   return (
-    <div className='w-full mt-2 select-none'>
+    <div
+      className={`w-full select-none ${isDesktop && isDesktopCollapsed ? '' : ''}`}
+    >
       <div
         ref={barRef}
         onClick={handleClick}
@@ -75,7 +85,6 @@ export default function SongProgressBar({
           onDragEnd={handleDragEnd}
         />
       </div>
-
       {/* TIME DISPLAY */}
       {showTime && variant != 'ghost' && (
         <div className='flex justify-between text-xs text-gray-400 mt-1 font-mono'>

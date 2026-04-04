@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo, useState} from 'react';
+import { useMemo, useState } from 'react';
 import {
   Drawer,
   DrawerTrigger,
@@ -8,11 +8,11 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import {Input} from '@/components/ui/input';
-import {Button} from '@/components/ui/button';
-import {Check, PlusCircle, X} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Check, PlusCircle, X } from 'lucide-react';
 import Image from 'next/image';
-import {useAudioPlayer} from '@/providers/AudioPlayerProvider';
+import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
 
 type AddSongsCompProps = {
   selectedSongIds: string[];
@@ -27,10 +27,13 @@ export default function AddSongsComp({
 }: AddSongsCompProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const {libraryView} = useAudioPlayer();
+  const { libraryView } = useAudioPlayer();
 
   const allSongs = libraryView?.partitioned?.songs ?? [];
-  const selectedSet = useMemo(() => new Set(selectedSongIds), [selectedSongIds]);
+  const selectedSet = useMemo(
+    () => new Set(selectedSongIds),
+    [selectedSongIds],
+  );
 
   const filteredSongs = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase();
@@ -51,7 +54,7 @@ export default function AddSongsComp({
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
         <Button
-          className='relative z-10 px-6 py-3 font-bold text-white rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 
+          className='relative z-10 px-6 py-3 font-bold text-white rounded-xl bg-linear-to-r from-pink-500 via-purple-500 to-indigo-500 
                shadow-xl transition-all duration-300 ease-in-out 
                hover:scale-105 hover:rotate-1 hover:shadow-2xl 
                 text-xs'
@@ -129,7 +132,9 @@ export default function AddSongsComp({
                       <p className='truncate text-sm font-medium text-white'>
                         {song.title}
                       </p>
-                      <p className='truncate text-xs text-zinc-400'>{song.artist}</p>
+                      <p className='truncate text-xs text-zinc-400'>
+                        {song.artist}
+                      </p>
                     </div>
                   </div>
                   <div className='ml-2'>
@@ -144,7 +149,9 @@ export default function AddSongsComp({
             })}
 
             {filteredSongs.length === 0 ? (
-              <p className='text-sm text-zinc-400'>No songs match your search.</p>
+              <p className='text-sm text-zinc-400'>
+                No songs match your search.
+              </p>
             ) : null}
           </div>
         </div>

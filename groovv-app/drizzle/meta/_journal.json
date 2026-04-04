@@ -15,6 +15,41 @@
       "when": 1772611360580,
       "tag": "0001_fancy_whistler",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774251600000,
+      "tag": "0002_quiet_ampere",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774255200000,
+      "tag": "0003_flat_hindsight",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774846800000,
+      "tag": "0004_market_listing_board",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774922400000,
+      "tag": "0005_quick_transaction_notifier",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775361600000,
+      "tag": "0006_auth_password_wallet",
+      "breakpoints": true
     }
   ]
 }

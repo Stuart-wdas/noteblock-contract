@@ -1,7 +1,8 @@
-import {eq, inArray} from 'drizzle-orm';
-import {NextResponse} from 'next/server';
-import {db} from '@/lib/db';
-import {playlistItems, playlists, songs, users} from '@/lib/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { playlistItems, playlists, songs, users } from '@/lib/db/schema';
+import { guardUserAccess } from '@/lib/auth/guards';
 
 type CreatePlaylistPayload = {
   title?: string;
@@ -11,35 +12,47 @@ type CreatePlaylistPayload = {
   coverSongId?: string;
 };
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as CreatePlaylistPayload;
     const title = body.title?.trim();
     const userId = body.userId?.trim();
 
     if (!title) {
-      return NextResponse.json({error: 'Playlist title is required'}, {status: 400});
+      return NextResponse.json(
+        { error: 'Playlist title is required' },
+        { status: 400 },
+      );
     }
 
-    if (!userId) {
-      return NextResponse.json({error: 'Wallet userId is required'}, {status: 400});
+    const guard = await guardUserAccess(userId);
+    if (!guard.ok) {
+      return NextResponse.json({ error: guard.error }, { status: guard.status });
     }
+
+    const resolvedUserId = guard.userId;
 
     const uniqueSongIds = Array.from(
-      new Set((body.songIds ?? []).map((songId) => songId.trim()).filter(Boolean))
+      new Set(
+        (body.songIds ?? []).map((songId) => songId.trim()).filter(Boolean),
+      ),
     );
 
     const existingSongRows =
       uniqueSongIds.length === 0
         ? []
         : await db
-            .select({id: songs.id})
+            .select({ id: songs.id })
             .from(songs)
             .where(inArray(songs.id, uniqueSongIds));
 
     const existingSongIdSet = new Set(existingSongRows.map((song) => song.id));
-    const validSongIds = uniqueSongIds.filter((songId) => existingSongIdSet.has(songId));
-    const skippedSongIds = uniqueSongIds.filter((songId) => !existingSongIdSet.has(songId));
+    const validSongIds = uniqueSongIds.filter((songId) =>
+      existingSongIdSet.has(songId),
+    );
+    const skippedSongIds = uniqueSongIds.filter(
+      (songId) => !existingSongIdSet.has(songId),
+    );
 
     const requestedCoverSongId = body.coverSongId?.trim();
     const coverSongId =
@@ -51,7 +64,7 @@ export async function POST(req: Request) {
       await tx
         .insert(users)
         .values({
-          contractAddress: userId,
+          contractAddress: resolvedUserId,
         })
         .onConflictDoNothing();
 
@@ -59,7 +72,7 @@ export async function POST(req: Request) {
         .insert(playlists)
         .values({
           title,
-          userId,
+          userId: resolvedUserId,
           isPublic: Boolean(body.isPublic),
           coverSongId,
         })
@@ -70,7 +83,7 @@ export async function POST(req: Request) {
           validSongIds.map((songId) => ({
             playlistId: createdPlaylist.id,
             songId,
-          }))
+          })),
         );
       }
 
@@ -98,6 +111,46 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error('Failed to create playlist', error);
-    return NextResponse.json({error: 'Failed to create playlist'}, {status: 500});
+    return NextResponse.json(
+      { error: 'Failed to create playlist' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = (await req.json()) as CreatePlaylistPayload;
+    const title = body.title?.trim();
+    const userId = body.userId?.trim();
+
+    if (!title) {
+      return NextResponse.json(
+        { error: 'Playlist title is required' },
+        { status: 400 },
+      );
+    }
+
+    const guard = await guardUserAccess(userId);
+    if (!guard.ok) {
+      return NextResponse.json({ error: guard.error }, { status: guard.status });
+    }
+
+    const resolvedUserId = guard.userId;
+
+    await db
+      .update(playlists)
+      .set({
+        title: title,
+      })
+      .where(eq(playlists.userId, resolvedUserId));
+
+    return NextResponse.json({ message: 'Playlist updated' }, { status: 201 });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json(
+      { message: 'Error Updating Playlist' },
+      { status: 500 },
+    );
   }
 }

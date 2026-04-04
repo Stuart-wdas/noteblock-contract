@@ -2,9 +2,16 @@
 version = 1
 
 [[package]]
+name = "alexandria_math"
+version = "0.10.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:b370905ed122b693a364690b83837bc40eb0640ebba334efeed0c0ec666432e5"
+
+[[package]]
 name = "groovv"
 version = "0.1.0"
 dependencies = [
+ "alexandria_math",
  "openzeppelin",
  "snforge_std",
 ]
@@ -129,15 +136,15 @@ checksum = "sha256:bf799c794139837f397975ffdf6a7ed5032d198bbf70e87a8f44f144a9dfc
 
 [[package]]
 name = "snforge_scarb_plugin"
-version = "0.48.1"
+version = "0.57.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:2dd27e8215eea8785b3930e9f452e11b429ca262b1c1fbb071bfc173b9ebc125"
+checksum = "sha256:e2f638625b0dc1d9e4b413bd463db6c3e44809cff7aeeb55459c71df877f679f"
 
 [[package]]
 name = "snforge_std"
-version = "0.48.1"
+version = "0.57.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:89f759fa685d48ed0ba7152d2ac2eb168da08dfa8b84b2bee96e203dc5b2413e"
+checksum = "sha256:ad59592257cbb26771c2a17fc487661e77714cc6677a044a79388cfa08e92da8"
 dependencies = [
  "snforge_scarb_plugin",
 ]

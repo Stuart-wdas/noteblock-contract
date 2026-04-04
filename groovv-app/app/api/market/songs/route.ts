@@ -1,11 +1,13 @@
-import {and, eq, gte} from 'drizzle-orm';
-import {db} from '@/lib/db';
+import { and, eq, gte, gt } from 'drizzle-orm';
+import { db } from '@/lib/db';
 import {
+  marketListings,
+  songs,
   streamSessions,
   tokenOwnerships,
   userPreferences,
 } from '@/lib/db/schema';
-import {NextRequest, NextResponse} from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 type StreamStats = {
   streams24h: number;
@@ -15,6 +17,8 @@ type StreamStats = {
 
 type MarketSong = {
   id: string;
+  listingId: string | null;
+  listingCount: number;
   title: string;
   artist: string;
   genre: string;
@@ -23,6 +27,7 @@ type MarketSong = {
   price: string;
   copies: number;
   releaseDate: string;
+  songId: string;
   albumId: number | null;
   albumTitle: string | null;
   metrics: {
@@ -39,6 +44,13 @@ type MarketSong = {
   };
 };
 
+type ListingAggregate = {
+  bestListingId: string;
+  bestPrice: string;
+  totalCopies: number;
+  listingCount: number;
+};
+
 function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value));
 }
@@ -46,6 +58,14 @@ function clamp(value: number, min = 0, max = 1) {
 function toFiniteNumber(value: string | number | null | undefined, fallback = 0) {
   const parsed = Number(value ?? fallback);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toBigIntSafe(value: string) {
+  try {
+    return BigInt(value);
+  } catch {
+    return BigInt(0);
+  }
 }
 
 function parsePreferenceList(value: string | null | undefined) {
@@ -76,6 +96,40 @@ function incrementWeight(map: Map<string, number>, key: string, amount: number) 
   map.set(key, (map.get(key) ?? 0) + amount);
 }
 
+function buildListingAggregate(rows: Array<{
+  songId: string;
+  listingId: string;
+  price: string;
+  copies: number;
+}>) {
+  const bySong = new Map<string, ListingAggregate>();
+
+  for (const row of rows) {
+    const current = bySong.get(row.songId);
+    if (!current) {
+      bySong.set(row.songId, {
+        bestListingId: row.listingId,
+        bestPrice: row.price,
+        totalCopies: row.copies,
+        listingCount: 1,
+      });
+      continue;
+    }
+
+    const isBetterPrice =
+      toBigIntSafe(row.price) < toBigIntSafe(current.bestPrice);
+    if (isBetterPrice) {
+      current.bestPrice = row.price;
+      current.bestListingId = row.listingId;
+    }
+
+    current.totalCopies += row.copies;
+    current.listingCount += 1;
+  }
+
+  return bySong;
+}
+
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId')?.trim();
   const now = Date.now();
@@ -86,11 +140,21 @@ export async function GET(req: NextRequest) {
   const weekStart = new Date(now - oneWeekMs);
   const monthStart = new Date(now - oneMonthMs);
 
-  const [listedSongs, recentStreams, ownershipRows] = await Promise.all([
-    db.query.songs.findMany({
-      where: (table, {gt}) => gt(table.copies, 0),
-      with: {album: true},
-    }),
+  const [activeListingRows, recentStreams, ownershipRows] = await Promise.all([
+    db
+      .select({
+        songId: marketListings.songId,
+        listingId: marketListings.listingId,
+        price: marketListings.price,
+        copies: marketListings.copies,
+      })
+      .from(marketListings)
+      .where(
+        and(
+          eq(marketListings.isActive, true),
+          gt(marketListings.copies, 0),
+        ),
+      ),
     db
       .select({
         songId: streamSessions.songId,
@@ -105,6 +169,34 @@ export async function GET(req: NextRequest) {
       })
       .from(tokenOwnerships),
   ]);
+
+  const listingBySong = buildListingAggregate(activeListingRows);
+
+  const fallbackSongRows = await db.query.songs.findMany({
+    where: (table, { and, gt, isNotNull }) =>
+      and(gt(table.copies, 0), isNotNull(table.listingId)),
+    with: { album: true },
+  });
+
+  for (const song of fallbackSongRows) {
+    if (!song.listingId) continue;
+    if (listingBySong.has(song.id)) continue;
+    listingBySong.set(song.id, {
+      bestListingId: song.listingId,
+      bestPrice: song.price,
+      totalCopies: song.copies,
+      listingCount: 1,
+    });
+  }
+
+  const listedSongIds = Array.from(listingBySong.keys());
+  const listedSongs =
+    listedSongIds.length === 0
+      ? []
+      : await db.query.songs.findMany({
+          where: (table, { inArray }) => inArray(table.id, listedSongIds),
+          with: { album: true },
+        });
 
   const streamStatsBySong = new Map<string, StreamStats>();
   for (const stream of recentStreams) {
@@ -135,65 +227,75 @@ export async function GET(req: NextRequest) {
     ownersBySong.get(row.songId)?.add(row.owner);
   }
 
-  const scoredSongs = listedSongs.map((song): MarketSong => {
-    const stats = streamStatsBySong.get(song.id) ?? {
-      streams24h: 0,
-      streamsPrev24h: 0,
-      streams7d: 0,
-    };
-    const ownerCount = ownersBySong.get(song.id)?.size ?? 0;
-    const price = toFiniteNumber(song.price, 0);
-    const copies = toFiniteNumber(song.copies, 0);
-    const daysSinceRelease =
-      (now - new Date(song.releaseDate).getTime()) / oneDayMs;
+  const scoredSongs = listedSongs
+    .map((song) => {
+      const listingAggregate = listingBySong.get(song.id);
+      if (!listingAggregate) return null;
 
-    const freshness = clamp(1 - daysSinceRelease / 45);
-    const momentum = Math.log1p(stats.streams24h * 2 + stats.streams7d);
-    const ownershipSignal = Math.log1p(ownerCount);
-    const affordability = 1 / (1 + Math.max(price, 0));
-    const liquidity = clamp(copies / 1500);
+      const stats = streamStatsBySong.get(song.id) ?? {
+        streams24h: 0,
+        streamsPrev24h: 0,
+        streams7d: 0,
+      };
+      const ownerCount = ownersBySong.get(song.id)?.size ?? 0;
+      const price = toFiniteNumber(listingAggregate.bestPrice, 0);
+      const copies = toFiniteNumber(listingAggregate.totalCopies, 0);
+      const daysSinceRelease =
+        (now - new Date(song.releaseDate).getTime()) / oneDayMs;
 
-    const topPickScore =
-      momentum * 0.45 +
-      freshness * 0.2 +
-      ownershipSignal * 0.15 +
-      affordability * 0.1 +
-      liquidity * 0.1;
+      const freshness = clamp(1 - daysSinceRelease / 45);
+      const momentum = Math.log1p(stats.streams24h * 2 + stats.streams7d);
+      const ownershipSignal = Math.log1p(ownerCount);
+      const affordability = 1 / (1 + Math.max(price, 0));
+      const liquidity = clamp(copies / 1500);
 
-    const trendGrowth =
-      (stats.streams24h - stats.streamsPrev24h) /
-      Math.max(1, stats.streamsPrev24h);
-    const riseScore =
-      clamp(trendGrowth, -1, 3) * 0.6 +
-      Math.log1p(stats.streams24h) * 0.3 +
-      freshness * 0.1;
+      const topPickScore =
+        momentum * 0.45 +
+        freshness * 0.2 +
+        ownershipSignal * 0.15 +
+        affordability * 0.1 +
+        liquidity * 0.1;
 
-    return {
-      id: song.id,
-      title: song.title,
-      artist: song.artist,
-      genre: song.genre,
-      cover: song.cover,
-      url: song.cid,
-      price: song.price,
-      copies: song.copies,
-      releaseDate: song.releaseDate.toISOString(),
-      albumId: song.albumId ?? null,
-      albumTitle: song.album?.title ?? null,
-      metrics: {
-        streams24h: stats.streams24h,
-        streamsPrev24h: stats.streamsPrev24h,
-        streams7d: stats.streams7d,
-        ownerCount,
-        freshness,
-        trendGrowth,
-        topPickScore,
-        riseScore,
-        personalAffinity: 0,
-        speedScore: 0,
-      },
-    };
-  });
+      const trendGrowth =
+        (stats.streams24h - stats.streamsPrev24h) /
+        Math.max(1, stats.streamsPrev24h);
+      const riseScore =
+        clamp(trendGrowth, -1, 3) * 0.6 +
+        Math.log1p(stats.streams24h) * 0.3 +
+        freshness * 0.1;
+
+      const marketSong: MarketSong = {
+        id: song.id,
+        listingId: listingAggregate.bestListingId,
+        listingCount: listingAggregate.listingCount,
+        title: song.title,
+        artist: song.artist,
+        genre: song.genre,
+        cover: song.cover,
+        url: song.cid,
+        price: listingAggregate.bestPrice,
+        copies: listingAggregate.totalCopies,
+        releaseDate: song.releaseDate.toISOString(),
+        songId: song.id,
+        albumId: song.albumId ?? null,
+        albumTitle: song.album?.title ?? null,
+        metrics: {
+          streams24h: stats.streams24h,
+          streamsPrev24h: stats.streamsPrev24h,
+          streams7d: stats.streams7d,
+          ownerCount,
+          freshness,
+          trendGrowth,
+          topPickScore,
+          riseScore,
+          personalAffinity: 0,
+          speedScore: 0,
+        },
+      };
+
+      return marketSong;
+    })
+    .filter((song): song is MarketSong => Boolean(song));
 
   const topPicks = [...scoredSongs]
     .sort((a, b) => b.metrics.topPickScore - a.metrics.topPickScore)
@@ -214,16 +316,16 @@ export async function GET(req: NextRequest) {
       }),
       db.query.tokenOwnerships.findMany({
         where: eq(tokenOwnerships.owner, userId),
-        with: {song: true},
+        with: { song: true },
       }),
       db
-        .select({songId: streamSessions.songId})
+        .select({ songId: streamSessions.songId })
         .from(streamSessions)
         .where(
           and(
             eq(streamSessions.userId, userId),
-            gte(streamSessions.startedAt, monthStart)
-          )
+            gte(streamSessions.startedAt, monthStart),
+          ),
         ),
     ]);
 
@@ -232,7 +334,7 @@ export async function GET(req: NextRequest) {
 
     preferredGenres.forEach((genre) => incrementWeight(genreWeights, genre, 3));
     preferredArtists.forEach((artist) =>
-      incrementWeight(artistWeights, artist, 2.5)
+      incrementWeight(artistWeights, artist, 2.5),
     );
 
     for (const row of ownedRows) {
@@ -257,7 +359,7 @@ export async function GET(req: NextRequest) {
       incrementWeight(
         globalGenreMomentum,
         song.genre.toLowerCase(),
-        Math.max(1, song.metrics.streams7d + song.metrics.streams24h * 2)
+        Math.max(1, song.metrics.streams7d + song.metrics.streams24h * 2),
       );
     }
 

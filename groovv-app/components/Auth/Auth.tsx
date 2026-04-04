@@ -57,7 +57,7 @@ export default function Auth() {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className='sm:max-w-[425px] flex flex-col items-center overflow-hidden  px-0 bg-accent '>
+      <DialogContent className='sm:max-w-106.25 flex flex-col items-center overflow-hidden  px-0 bg-accent '>
         <DialogHeader>
           <DialogTitle className='text-center'>
             {mode === 'signin' ? 'Sign In' : 'Sign Up'}

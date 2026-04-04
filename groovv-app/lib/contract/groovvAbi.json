@@ -1,0 +1,1008 @@
+[
+    {
+        "type":  "impl",
+        "name":  "GroovvImpl",
+        "interface_name":  "groovv::groovv::interface::IGroovv"
+    },
+    {
+        "type":  "struct",
+        "name":  "core::byte_array::ByteArray",
+        "members":  [
+                        {
+                            "name":  "data",
+                            "type":  "core::array::Array::\u003ccore::bytes_31::bytes31\u003e"
+                        },
+                        {
+                            "name":  "pending_word",
+                            "type":  "core::felt252"
+                        },
+                        {
+                            "name":  "pending_word_len",
+                            "type":  "core::internal::bounded_int::BoundedInt::\u003c0, 30\u003e"
+                        }
+                    ]
+    },
+    {
+        "type":  "struct",
+        "name":  "core::integer::u256",
+        "members":  [
+                        {
+                            "name":  "low",
+                            "type":  "core::integer::u128"
+                        },
+                        {
+                            "name":  "high",
+                            "type":  "core::integer::u128"
+                        }
+                    ]
+    },
+    {
+        "type":  "struct",
+        "name":  "groovv::groovv::interface::Song",
+        "members":  [
+                        {
+                            "name":  "name",
+                            "type":  "core::byte_array::ByteArray"
+                        },
+                        {
+                            "name":  "artist",
+                            "type":  "core::starknet::contract_address::ContractAddress"
+                        },
+                        {
+                            "name":  "genre",
+                            "type":  "core::byte_array::ByteArray"
+                        },
+                        {
+                            "name":  "length",
+                            "type":  "core::integer::u256"
+                        },
+                        {
+                            "name":  "releaseDate",
+                            "type":  "core::integer::u256"
+                        },
+                        {
+                            "name":  "feat",
+                            "type":  "core::array::Array::\u003ccore::starknet::contract_address::ContractAddress\u003e"
+                        },
+                        {
+                            "name":  "CID",
+                            "type":  "core::felt252"
+                        }
+                    ]
+    },
+    {
+        "type":  "struct",
+        "name":  "groovv::groovv::interface::Listing",
+        "members":  [
+                        {
+                            "name":  "seller",
+                            "type":  "core::starknet::contract_address::ContractAddress"
+                        },
+                        {
+                            "name":  "song_id",
+                            "type":  "core::integer::u256"
+                        },
+                        {
+                            "name":  "price",
+                            "type":  "core::integer::u256"
+                        },
+                        {
+                            "name":  "copies",
+                            "type":  "core::integer::u256"
+                        }
+                    ]
+    },
+    {
+        "type":  "struct",
+        "name":  "groovv::groovv::interface::Album",
+        "members":  [
+                        {
+                            "name":  "name",
+                            "type":  "core::byte_array::ByteArray"
+                        },
+                        {
+                            "name":  "artist",
+                            "type":  "core::starknet::contract_address::ContractAddress"
+                        },
+                        {
+                            "name":  "genre",
+                            "type":  "core::byte_array::ByteArray"
+                        },
+                        {
+                            "name":  "releaseDate",
+                            "type":  "core::integer::u256"
+                        },
+                        {
+                            "name":  "songs",
+                            "type":  "core::array::Array::\u003ccore::integer::u256\u003e"
+                        }
+                    ]
+    },
+    {
+        "type":  "interface",
+        "name":  "groovv::groovv::interface::IGroovv",
+        "items":  [
+                      {
+                          "type":  "function",
+                          "name":  "mint_song",
+                          "inputs":  [
+                                         {
+                                             "name":  "song",
+                                             "type":  "groovv::groovv::interface::Song"
+                                         },
+                                         {
+                                             "name":  "price",
+                                             "type":  "core::integer::u128"
+                                         },
+                                         {
+                                             "name":  "copies",
+                                             "type":  "core::integer::u128"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "update_song_price",
+                          "inputs":  [
+                                         {
+                                             "name":  "id",
+                                             "type":  "core::integer::u256"
+                                         },
+                                         {
+                                             "name":  "new_price",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "get_song",
+                          "inputs":  [
+                                         {
+                                             "name":  "id",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+                                          {
+                                              "type":  "groovv::groovv::interface::Song"
+                                          }
+                                      ],
+                          "state_mutability":  "view"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "get_listing",
+                          "inputs":  [
+                                         {
+                                             "name":  "id",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+                                          {
+                                              "type":  "groovv::groovv::interface::Listing"
+                                          }
+                                      ],
+                          "state_mutability":  "view"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "get_song_balance",
+                          "inputs":  [
+                                         {
+                                             "name":  "owner",
+                                             "type":  "core::starknet::contract_address::ContractAddress"
+                                         },
+                                         {
+                                             "name":  "song_id",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+                                          {
+                                              "type":  "core::integer::u256"
+                                          }
+                                      ],
+                          "state_mutability":  "view"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "buy_song",
+                          "inputs":  [
+                                         {
+                                             "name":  "id",
+                                             "type":  "core::integer::u256"
+                                         },
+                                         {
+                                             "name":  "expected_price",
+                                             "type":  "core::integer::u256"
+                                         },
+                                         {
+                                             "name":  "copies",
+                                             "type":  "core::integer::u256"
+                                         },
+                                         {
+                                             "name":  "tip",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "list_song",
+                          "inputs":  [
+                                         {
+                                             "name":  "song_id",
+                                             "type":  "core::integer::u256"
+                                         },
+                                         {
+                                             "name":  "price",
+                                             "type":  "core::integer::u256"
+                                         },
+                                         {
+                                             "name":  "copies",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "remove_listing",
+                          "inputs":  [
+                                         {
+                                             "name":  "id",
+                                             "type":  "core::integer::u256"
+                                         },
+                                         {
+                                             "name":  "copies",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "create_album",
+                          "inputs":  [
+                                         {
+                                             "name":  "album",
+                                             "type":  "groovv::groovv::interface::Album"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "add_song_to_album",
+                          "inputs":  [
+                                         {
+                                             "name":  "album_id",
+                                             "type":  "core::integer::u256"
+                                         },
+                                         {
+                                             "name":  "song_id",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "set_ratio_hundredths",
+                          "inputs":  [
+                                         {
+                                             "name":  "ratio_hundredths",
+                                             "type":  "core::integer::u16"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "get_ratio_hundredths",
+                          "inputs":  [
+
+                                     ],
+                          "outputs":  [
+                                          {
+                                              "type":  "core::integer::u16"
+                                          }
+                                      ],
+                          "state_mutability":  "view"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "withdraw_funds",
+                          "inputs":  [
+                                         {
+                                             "name":  "to",
+                                             "type":  "core::starknet::contract_address::ContractAddress"
+                                         },
+                                         {
+                                             "name":  "amount",
+                                             "type":  "core::integer::u256"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "upgrade",
+                          "inputs":  [
+                                         {
+                                             "name":  "new_class_hash",
+                                             "type":  "core::starknet::class_hash::ClassHash"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      }
+                  ]
+    },
+    {
+        "type":  "impl",
+        "name":  "OwnableMixinImpl",
+        "interface_name":  "openzeppelin_access::ownable::interface::OwnableABI"
+    },
+    {
+        "type":  "interface",
+        "name":  "openzeppelin_access::ownable::interface::OwnableABI",
+        "items":  [
+                      {
+                          "type":  "function",
+                          "name":  "owner",
+                          "inputs":  [
+
+                                     ],
+                          "outputs":  [
+                                          {
+                                              "type":  "core::starknet::contract_address::ContractAddress"
+                                          }
+                                      ],
+                          "state_mutability":  "view"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "transfer_ownership",
+                          "inputs":  [
+                                         {
+                                             "name":  "new_owner",
+                                             "type":  "core::starknet::contract_address::ContractAddress"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "renounce_ownership",
+                          "inputs":  [
+
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "transferOwnership",
+                          "inputs":  [
+                                         {
+                                             "name":  "newOwner",
+                                             "type":  "core::starknet::contract_address::ContractAddress"
+                                         }
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      },
+                      {
+                          "type":  "function",
+                          "name":  "renounceOwnership",
+                          "inputs":  [
+
+                                     ],
+                          "outputs":  [
+
+                                      ],
+                          "state_mutability":  "external"
+                      }
+                  ]
+    },
+    {
+        "type":  "constructor",
+        "name":  "constructor",
+        "inputs":  [
+                       {
+                           "name":  "owner",
+                           "type":  "core::starknet::contract_address::ContractAddress"
+                       },
+                       {
+                           "name":  "token_uri",
+                           "type":  "core::byte_array::ByteArray"
+                       },
+                       {
+                           "name":  "usdc_address",
+                           "type":  "core::starknet::contract_address::ContractAddress"
+                       }
+                   ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferred",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "previous_owner",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "new_owner",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferStarted",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "previous_owner",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "new_owner",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_access::ownable::ownable::OwnableComponent::Event",
+        "kind":  "enum",
+        "variants":  [
+                         {
+                             "name":  "OwnershipTransferred",
+                             "type":  "openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferred",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "OwnershipTransferStarted",
+                             "type":  "openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferStarted",
+                             "kind":  "nested"
+                         }
+                     ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::events::SongCreated",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "song_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "artist",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "name",
+                            "type":  "core::byte_array::ByteArray",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "genre",
+                            "type":  "core::byte_array::ByteArray",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "length",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "release_date",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "cid",
+                            "type":  "core::felt252",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::events::SongUpdated",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "listing_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "seller",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "new_price",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::events::AlbumCreated",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "album_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "artist",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "name",
+                            "type":  "core::byte_array::ByteArray",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "genre",
+                            "type":  "core::byte_array::ByteArray",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "release_date",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "songs_count",
+                            "type":  "core::integer::u32",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::events::ListingCreated",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "seller",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "listing_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "song_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "price",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "copies",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::events::ListingPurchased",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "buyer",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "seller",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "listing_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "song_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "price",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "copies",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "total_cost",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::events::ListingRemoved",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "seller",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "listing_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "song_id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "removed_copies",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "remaining_copies",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::events::FundsWithdrawn",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "owner",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "recipient",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "amount",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::events::GroovvEvents",
+        "kind":  "enum",
+        "variants":  [
+                         {
+                             "name":  "SongCreated",
+                             "type":  "groovv::groovv::events::SongCreated",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "SongUpdated",
+                             "type":  "groovv::groovv::events::SongUpdated",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "AlbumCreated",
+                             "type":  "groovv::groovv::events::AlbumCreated",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "ListingCreated",
+                             "type":  "groovv::groovv::events::ListingCreated",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "ListingPurchased",
+                             "type":  "groovv::groovv::events::ListingPurchased",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "ListingRemoved",
+                             "type":  "groovv::groovv::events::ListingRemoved",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "FundsWithdrawn",
+                             "type":  "groovv::groovv::events::FundsWithdrawn",
+                             "kind":  "nested"
+                         }
+                     ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::TransferSingle",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "operator",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "from",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "to",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "id",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "value",
+                            "type":  "core::integer::u256",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "struct",
+        "name":  "core::array::Span::\u003ccore::integer::u256\u003e",
+        "members":  [
+                        {
+                            "name":  "snapshot",
+                            "type":  "@core::array::Array::\u003ccore::integer::u256\u003e"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::TransferBatch",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "operator",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "from",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "to",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "ids",
+                            "type":  "core::array::Span::\u003ccore::integer::u256\u003e",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "values",
+                            "type":  "core::array::Span::\u003ccore::integer::u256\u003e",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "enum",
+        "name":  "core::bool",
+        "variants":  [
+                         {
+                             "name":  "False",
+                             "type":  "()"
+                         },
+                         {
+                             "name":  "True",
+                             "type":  "()"
+                         }
+                     ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::ApprovalForAll",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "owner",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "operator",
+                            "type":  "core::starknet::contract_address::ContractAddress",
+                            "kind":  "key"
+                        },
+                        {
+                            "name":  "approved",
+                            "type":  "core::bool",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::URI",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "value",
+                            "type":  "core::byte_array::ByteArray",
+                            "kind":  "data"
+                        },
+                        {
+                            "name":  "id",
+                            "type":  "core::integer::u256",
+                            "kind":  "key"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::Event",
+        "kind":  "enum",
+        "variants":  [
+                         {
+                             "name":  "TransferSingle",
+                             "type":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::TransferSingle",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "TransferBatch",
+                             "type":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::TransferBatch",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "ApprovalForAll",
+                             "type":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::ApprovalForAll",
+                             "kind":  "nested"
+                         },
+                         {
+                             "name":  "URI",
+                             "type":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::URI",
+                             "kind":  "nested"
+                         }
+                     ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_introspection::src5::SRC5Component::Event",
+        "kind":  "enum",
+        "variants":  [
+
+                     ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+        "kind":  "struct",
+        "members":  [
+                        {
+                            "name":  "class_hash",
+                            "type":  "core::starknet::class_hash::ClassHash",
+                            "kind":  "data"
+                        }
+                    ]
+    },
+    {
+        "type":  "event",
+        "name":  "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+        "kind":  "enum",
+        "variants":  [
+                         {
+                             "name":  "Upgraded",
+                             "type":  "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+                             "kind":  "nested"
+                         }
+                     ]
+    },
+    {
+        "type":  "event",
+        "name":  "groovv::groovv::groovv::Groovv::Event",
+        "kind":  "enum",
+        "variants":  [
+                         {
+                             "name":  "OwnableEvent",
+                             "type":  "openzeppelin_access::ownable::ownable::OwnableComponent::Event",
+                             "kind":  "flat"
+                         },
+                         {
+                             "name":  "GroovvEvents",
+                             "type":  "groovv::groovv::events::GroovvEvents",
+                             "kind":  "flat"
+                         },
+                         {
+                             "name":  "ERC1155Event",
+                             "type":  "openzeppelin_token::erc1155::erc1155::ERC1155Component::Event",
+                             "kind":  "flat"
+                         },
+                         {
+                             "name":  "SRC5Event",
+                             "type":  "openzeppelin_introspection::src5::SRC5Component::Event",
+                             "kind":  "flat"
+                         },
+                         {
+                             "name":  "UpgradeableEvent",
+                             "type":  "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+                             "kind":  "flat"
+                         }
+                     ]
+    }
+]

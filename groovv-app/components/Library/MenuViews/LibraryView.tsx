@@ -11,7 +11,7 @@ export default function LibraryView({ songs }: any) {
           key={song.id}
           className='rounded-2xl  p-2.5 transition hover:border-orange-400/35 hover:bg-black/35'
         >
-          <AlbumCover album={song as any} />
+          <AlbumCover album={song} />
         </div>
       ))}
     </div>

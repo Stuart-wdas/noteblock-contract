@@ -6,22 +6,27 @@ edition = "2024_07"
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest.html
 
 [dependencies]
-starknet = "2.11.4"
+starknet = ">=2.16.1"
 openzeppelin = "2.0.0"
+alexandria_math = "0.10.0"
 
 [dev-dependencies]
-snforge_std = "0.48.1"
+snforge_std = ">=0.50.0"
 assert_macros = "2.9.2"
 
 [[target.starknet-contract]]
 sierra = true
+casm = true
 build-external-contracts = [
     "openzeppelin_presets::UniversalDeployer",
     "openzeppelin_presets::ERC20Upgradeable",
 ]
+allowed-libfuncs-list.name = "experimental"
 
 [scripts]
 test = "snforge test --coverage"
+# test = "snforge test"
+
 
 [tool.scarb]
 allow-prebuilt-plugins = ["snforge_std"]
@@ -37,6 +42,7 @@ allow-prebuilt-plugins = ["snforge_std"]
 name = "SEPOLIA_LATEST"
 url = "$RPC_URL"
 block_id.tag = "latest"
+# https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/xdxzVb2ajJgkRTFqxTlhe
 
 # [[tool.snforge.fork]]
 # name = "SOME_SECOND_NAME"
@@ -51,7 +57,8 @@ block_id.tag = "latest"
 [profile.dev.cairo]                                        # Configure Cairo compiler
 unstable-add-statements-code-locations-debug-info = true   # Should be used if you want to use coverage
 unstable-add-statements-functions-debug-info = true        # Should be used if you want to use coverage/profiler
-inlining-strategy = "avoid"                                 # Should be used if you want to use coverage
+inlining-strategy = 'avoid'
+# panic-backtrace = true                                 # Should be used if you want to use coverage
 
 # [features]                                                 # Used for conditional compilation
 # enable_for_tests = []                                      # Feature name and list of other features that should be enabled with it

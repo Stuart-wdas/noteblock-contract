@@ -66,7 +66,7 @@ pub trait IGroovv<TContractState> {
     // The song is added to the map of ids to songs
     // An event is emitted for the created song
     // The song is sent to the artist's address -> where users will be able to buy it
-    fn mint_song(ref self: TContractState, song: Song, price: u256, copies: u256, token_uri: ByteArray); 
+    fn mint_song(ref self: TContractState, song: Song, price: u128, copies: u128);
 
     // mints more copies of an existing song
     // fn mint_more_copies(ref self: TContractState, id: u256, copies: u256);
@@ -87,11 +87,24 @@ pub trait IGroovv<TContractState> {
     // Returns the song from the mapping of ids to songs
     fn get_song(self: @TContractState, id: u256) -> Song;
 
+    // Returns listing details at id.
+    fn get_listing(self: @TContractState, id: u256) -> Listing;
+
+    // Returns token balance (copy count) for a wallet and song token id.
+    fn get_song_balance(
+        self: @TContractState, owner: ContractAddress, song_id: u256
+    ) -> u256;
+
     // Allows user to buy a song in the form of an nft used as an access key to the song stored in NBs storage vault
-    fn buy_song(ref self: TContractState, id: u256, copies: u256, tip: u256);
+    // expected_price protects buyers from last-moment listing price changes.
+    fn buy_song(ref self: TContractState, id: u256, expected_price: u256, copies: u256, tip: u256);
 
     // Allows users to sell the song back into the market for the market price unless bought for another amount
     fn list_song(ref self: TContractState, song_id: u256, price: u256, copies: u256);
+
+    // Allows listing owners to remove copies from their listing and reclaim escrowed copies.
+    // Passing all listed copies removes the listing entirely.
+    fn remove_listing(ref self: TContractState, id: u256, copies: u256);
 
     fn create_album(ref self: TContractState, album: Album);
 
@@ -102,7 +115,9 @@ pub trait IGroovv<TContractState> {
     // Returns the album from the mapping of ids to albums
     // fn get_album(self: @TContractState, id: u256) -> Array<u256>;
     fn add_song_to_album(ref self: TContractState, album_id: u256, song_id: u256);
-
+    fn set_ratio_hundredths(ref self: TContractState, ratio_hundredths: u16);
+    fn get_ratio_hundredths(self: @TContractState) -> u16;
+    fn withdraw_funds(ref self: TContractState, to: ContractAddress, amount: u256);
+    
     fn upgrade(ref self: TContractState, new_class_hash: ClassHash);
-
 }
