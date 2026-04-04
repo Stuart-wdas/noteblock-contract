@@ -3,6 +3,7 @@
 Groovv is a full-stack Starknet music platform where artists can mint songs, list them on-chain, and listeners can discover, buy, and manage ownership-backed music access.
 
 This repository contains:
+
 - A Cairo smart contract for minting, listing, trading, and royalty-aware marketplace logic.
 - A Next.js web app for wallet-based listening, studio management, playlists, marketplace discovery, and profile history.
 - A TypeScript listener service that watches Starknet events and syncs them into the app database for fast queries, notifications, and recommendations.
@@ -10,6 +11,7 @@ This repository contains:
 ## What This Project Is
 
 Groovv combines on-chain ownership and off-chain product UX:
+
 - On-chain (Starknet): source of truth for minting, listing, purchases, listing removal, and ownership balance.
 - Off-chain (Postgres + Next.js APIs): indexed query layer for search, recommendations, notifications, and profile timelines.
 - Realtime sync layer: event listener reads contract events and posts normalized batches to the app ingest API.
@@ -66,6 +68,7 @@ Next.js APIs + UI (library, market, search, notifications, profile)
 Primary contract: `Groovv`
 
 Implemented capabilities include:
+
 - `mint_song`
 - `update_song_price`
 - `buy_song`
@@ -76,10 +79,9 @@ Implemented capabilities include:
 - `get_song`
 - `get_listing`
 - `get_song_balance`
-- owner-only `withdraw_funds`
-- owner-only `upgrade`
 
 Event surface includes:
+
 - `SongCreated`
 - `SongUpdated`
 - `AlbumCreated`
@@ -91,6 +93,7 @@ Event surface includes:
 ## Web App Scope (`groovv-app/`)
 
 Tech stack:
+
 - Next.js 15 (App Router, Turbopack)
 - React 19
 - Drizzle ORM + PostgreSQL
@@ -98,6 +101,7 @@ Tech stack:
 - React Query for client data sync
 
 Functional areas:
+
 - Library and playback UI
 - Studio (create/profile/listings)
 - Marketplace + recommendation feeds
@@ -109,6 +113,7 @@ Functional areas:
 ## Listener Scope (`groovv-listener/`)
 
 Responsibilities:
+
 - Subscribe to Groovv contract events over WebSocket.
 - Fetch receipts/traces over RPC.
 - Decode ABI events and normalize payloads.
@@ -132,12 +137,14 @@ Responsibilities:
 #### `groovv-app/.env`
 
 Required:
+
 - `DATABASE_URL`
 - `NEXT_PUBLIC_GROOVV_CONTRACT_ADDRESS`
 - `NEXT_PUBLIC_GROOVV_PAYMENT_TOKEN_ADDRESS` (or `NEXT_PUBLIC_USDC_TOKEN_ADDRESS`)
 - `NEXT_PUBLIC_STARKNET_RPC_URL` (or `NEXT_PUBLIC_RPC_URL`)
 
 Optional:
+
 - `LISTENER_SHARED_SECRET` (recommended when listener posts events)
 - `NEXT_PUBLIC_STARKSCAN_TX_BASE_URL`
 - `NEXT_PUBLIC_PWA_DEV_ENABLED`
@@ -146,6 +153,7 @@ Optional:
 #### `groovv-listener/.env`
 
 Use `groovv-listener/.env.example` as baseline:
+
 - `RPC_URL`
 - `WS_URL`
 - `GROOVV_CONTRACT_ADDRESS`
@@ -207,6 +215,7 @@ scarb test
 ## Key Scripts
 
 ### `groovv-app`
+
 - `npm run dev` - start app in dev mode
 - `npm run build` - production build
 - `npm run start` - run production server
@@ -216,17 +225,20 @@ scarb test
 - `npm run db:studio` - open Drizzle studio
 
 ### `groovv-listener`
+
 - `npm run dev` - run listener in TS mode
 - `npm run build` - compile listener
 - `npm run start` - run compiled listener
 - `npm run decode:tx` - tx decode utility
 
 ### `contracts`
+
 - `scarb test` - run contract tests (configured with coverage script in `Scarb.toml`)
 
 ## Event-Driven Data Model (App)
 
 The ingest pipeline updates Postgres tables for:
+
 - users
 - songs
 - albums
@@ -241,6 +253,6 @@ This enables fast API reads without repeatedly querying chain state for every UI
 
 ## Notes
 
-- This repository appears targeted at Starknet Sepolia for current tests and listener configs.
+- This repository targets Starknet Sepolia for current tests and listener configs.
 - Upload endpoints save media under `groovv-app/public/uploads/...` for local development.
 - Contract and marketplace logic should be audited before mainnet production use.
