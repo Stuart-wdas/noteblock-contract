@@ -84,6 +84,89 @@ export const walletLoginChallenges = pgTable(
   ],
 );
 
+export const authUsers = pgTable(
+  'AuthUser',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    email: text('email').notNull(),
+    emailVerified: boolean('emailVerified').default(false).notNull(),
+    image: text('image'),
+    walletAddress: text('walletAddress'),
+    createdAt: timestamp('createdAt', {mode: 'date'}).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', {mode: 'date'}).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('AuthUser_email_unique').on(table.email),
+    uniqueIndex('AuthUser_walletAddress_unique').on(table.walletAddress),
+  ],
+);
+
+export const authSessionsV2 = pgTable(
+  'AuthSessionV2',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId')
+      .notNull()
+      .references(() => authUsers.id, {onDelete: 'cascade'}),
+    token: text('token').notNull(),
+    expiresAt: timestamp('expiresAt', {mode: 'date'}).notNull(),
+    ipAddress: text('ipAddress'),
+    userAgent: text('userAgent'),
+    createdAt: timestamp('createdAt', {mode: 'date'}).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', {mode: 'date'}).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('AuthSessionV2_token_unique').on(table.token),
+    index('AuthSessionV2_userId_expiresAt_idx').on(table.userId, table.expiresAt),
+  ],
+);
+
+export const authAccountsV2 = pgTable(
+  'AuthAccountV2',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('accountId').notNull(),
+    providerId: text('providerId').notNull(),
+    userId: text('userId')
+      .notNull()
+      .references(() => authUsers.id, {onDelete: 'cascade'}),
+    accessToken: text('accessToken'),
+    refreshToken: text('refreshToken'),
+    idToken: text('idToken'),
+    accessTokenExpiresAt: timestamp('accessTokenExpiresAt', {mode: 'date'}),
+    refreshTokenExpiresAt: timestamp('refreshTokenExpiresAt', {mode: 'date'}),
+    scope: text('scope'),
+    password: text('password'),
+    createdAt: timestamp('createdAt', {mode: 'date'}).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', {mode: 'date'}).defaultNow().notNull(),
+  },
+  (table) => [
+    index('AuthAccountV2_userId_idx').on(table.userId),
+    index('AuthAccountV2_providerId_idx').on(table.providerId),
+    uniqueIndex('AuthAccountV2_provider_account_unique').on(
+      table.providerId,
+      table.accountId,
+    ),
+  ],
+);
+
+export const authVerificationV2 = pgTable(
+  'AuthVerificationV2',
+  {
+    id: text('id').primaryKey(),
+    identifier: text('identifier').notNull(),
+    value: text('value').notNull(),
+    expiresAt: timestamp('expiresAt', {mode: 'date'}).notNull(),
+    createdAt: timestamp('createdAt', {mode: 'date'}).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', {mode: 'date'}).defaultNow().notNull(),
+  },
+  (table) => [
+    index('AuthVerificationV2_identifier_idx').on(table.identifier),
+    uniqueIndex('AuthVerificationV2_value_unique').on(table.value),
+  ],
+);
+
 export const albums = pgTable('Album', {
   id: serial('id').primaryKey(),
   title: text('title').notNull(),
@@ -380,6 +463,25 @@ export const authSessionsRelations = relations(authSessions, ({one}) => ({
   user: one(users, {
     fields: [authSessions.userId],
     references: [users.contractAddress],
+  }),
+}));
+
+export const authUsersRelations = relations(authUsers, ({many}) => ({
+  sessions: many(authSessionsV2),
+  accounts: many(authAccountsV2),
+}));
+
+export const authSessionsV2Relations = relations(authSessionsV2, ({one}) => ({
+  user: one(authUsers, {
+    fields: [authSessionsV2.userId],
+    references: [authUsers.id],
+  }),
+}));
+
+export const authAccountsV2Relations = relations(authAccountsV2, ({one}) => ({
+  user: one(authUsers, {
+    fields: [authAccountsV2.userId],
+    references: [authUsers.id],
   }),
 }));
 
